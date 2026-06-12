@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Gone by Monday</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-logo">🚛</div>
+    <h1 class="login-title">Gone by Monday</h1>
+    <p class="login-subtitle">Cache Valley Hauling & Junk Removal</p>
+    <form id="login-form">
+      <div class="form-group" style="text-align:left">
+        <label class="form-label">Password</label>
+        <input type="password" id="password" class="form-control" placeholder="Enter dashboard password" autofocus required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" style="margin-top:.5rem">Sign In</button>
+      <p id="login-error" style="color:var(--red);font-size:.85rem;margin-top:.75rem;display:none">Wrong password. Try again.</p>
+    </form>
+  </div>
+</div>
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pw = document.getElementById('password').value;
+  const err = document.getElementById('login-error');
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error();
+    localStorage.setItem('gbm_token', data.token);
+    window.location.href = '/index.html';
+  } catch {
+    err.style.display = 'block';
+  }
+});
+// Skip login if already authenticated
+if (localStorage.getItem('gbm_token')) window.location.href = '/index.html';
+</script>
+</body>
+</html>

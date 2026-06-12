@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jobs — Gone by Monday</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-brand">🚛 Gone by Monday</a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link">Dashboard</a>
+    <a href="quotes.html" class="nav-link">
+      Quotes <span id="pending-badge" class="nav-badge" style="display:none">0</span>
+    </a>
+    <a href="jobs.html" class="nav-link active">Jobs</a>
+    <a href="schedule.html" class="nav-link">Schedule</a>
+  </div>
+  <div class="nav-spacer"></div>
+  <button class="btn btn-outline btn-sm" onclick="logout()" style="color:#fff;border-color:rgba(255,255,255,.4)">Sign Out</button>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">Work Orders</h1>
+    <div style="display:flex;gap:.5rem">
+      <select id="filter-status" class="form-control" style="width:160px" onchange="loadJobs()">
+        <option value="scheduled">Scheduled</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+        <option value="">All Jobs</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="loadJobs()">↺</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Customer</th>
+            <th>Address</th>
+            <th>Date</th>
+            <th>Load</th>
+            <th>Value</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="jobs-body">
+          <tr><td colspan="8"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Job Detail Modal -->
+<div id="job-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="job-modal-title">Job Details</span>
+      <button class="modal-close" onclick="closeModal('job-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="job-modal-body"></div>
+    <div class="modal-footer" id="job-modal-footer"></div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+let jobs = [];
+
+async function loadJobs() {
+  const status = document.getElementById('filter-status').value;
+  const tbody = document.getElementById('jobs-body');
+  tbody.innerHTML = '<tr><td colspan="8"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const url = status ? `/api/jobs?status=${status}` : '/api/jobs';
+    jobs = await API.get(url);
+    renderJobs(jobs);
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--red);padding:1.5rem">${err.message}</td></tr>`;
+  }
+}
+
+function renderJobs(jobs) {
+  const tbody = document.getElementById('jobs-body');
+  if (!jobs.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">📭</div><h3>No jobs found</h3></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = jobs.map((j, i) => `
+    <tr>
+      <td style="font-weight:600;color:var(--gray-700)">#${j.id}</td>
+      <td>
+        <div style="font-weight:600">${j.name || '—'}</div>
+        <div style="font-size:.8rem;color:var(--gray-500)">${fmtPhone(j.phone)}</div>
+      </td>
+      <td style="font-size:.87rem">${j.address || '—'}${j.city ? ', ' + j.city : ''}</td>
+      <td style="white-space:nowrap">${fmtDate(j.scheduled_date)}</td>
+      <td>${loadSize(j.load_size)}</td>
+      <td style="font-weight:600">${j.total_price ? fmt$$(j.total_price) : '—'}</td>
+      <td>${statusBadge(j.status)}</td>
+      <td>
+        <div style="display:flex;gap:.3rem">
+          <button class="btn btn-outline btn-sm" onclick="openJob(${j.id})" title="Details">📋</button>
+          ${j.status === 'scheduled' ? `
+            <button class="btn btn-sm" style="background:var(--green);color:#fff" onclick="sendReminder(${j.id})" title="Send 30-min reminder">📱</button>
+            <button class="btn btn-sm btn-primary" onclick="completeJob(${j.id})" title="Mark complete">✓</button>
+          ` : ''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+async function openJob(id) {
+  const j = jobs.find(x => x.id === id) || await API.get(`/api/jobs/${id}`);
+  document.getElementById('job-modal-title').textContent = `Job #${j.id} — ${j.name || fmtPhone(j.phone)}`;
+
+  document.getElementById('job-modal-body').innerHTML = `
+    <div style="display:grid;gap:.75rem">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <div><div class="form-label">Customer</div><strong>${j.name || '—'}</strong></div>
+        <div><div class="form-label">Phone</div><strong>${fmtPhone(j.phone)}</strong></div>
+        <div><div class="form-label">Address</div><strong>${j.address || '—'}, ${j.city || ''} ${j.state || ''}</strong></div>
+        <div><div class="form-label">Scheduled</div><strong>${fmtDate(j.scheduled_date)}</strong></div>
+        <div><div class="form-label">Load Size</div><strong>${loadSize(j.load_size)}</strong></div>
+        <div><div class="form-label">Total</div><strong>${j.total_price ? fmt$$(j.total_price) : '—'}</strong></div>
+        <div><div class="form-label">Duration Est.</div><strong>${j.estimated_duration_minutes || 60} min</strong></div>
+        <div><div class="form-label">Status</div>${statusBadge(j.status)}</div>
+      </div>
+      ${j.notes ? `<div style="background:var(--gray-50);border-radius:6px;padding:.75rem;font-size:.875rem">${j.notes}</div>` : ''}
+      ${j.calendar_event_id ? `<div style="font-size:.8rem;color:var(--gray-500)">📅 Calendar event: ${j.calendar_event_id}</div>` : ''}
+
+      <div>
+        <label class="form-label">Reschedule</label>
+        <input type="date" id="reschedule-date" class="form-control" value="${j.scheduled_date || ''}">
+      </div>
+    </div>`;
+
+  document.getElementById('job-modal-footer').innerHTML = `
+    <button class="btn btn-outline" onclick="closeModal('job-modal')">Close</button>
+    <button class="btn btn-primary" onclick="reschedule(${j.id})">Save Date</button>
+    ${j.status === 'scheduled' ? `
+      <button class="btn btn-sm" style="background:var(--orange);color:#fff" onclick="sendReminder(${j.id})">📱 Remind</button>
+      <button class="btn btn-primary btn-sm" onclick="completeJob(${j.id})">✓ Complete</button>
+    ` : ''}`;
+
+  document.getElementById('job-modal').classList.remove('hidden');
+}
+
+async function reschedule(id) {
+  const date = document.getElementById('reschedule-date').value;
+  if (!date) return;
+  try {
+    await API.put(`/api/jobs/${id}`, { scheduled_date: date });
+    showToast('Job rescheduled!', 'success');
+    closeModal('job-modal');
+    loadJobs();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function completeJob(id) {
+  if (!confirm('Mark this job as completed?')) return;
+  try {
+    await API.post(`/api/jobs/${id}/complete`);
+    showToast('Job marked complete!', 'success');
+    closeModal('job-modal');
+    loadJobs();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function sendReminder(id) {
+  try {
+    await API.post(`/api/jobs/${id}/remind`);
+    showToast('30-min reminder sent!', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+function logout() {
+  localStorage.removeItem('gbm_token');
+  window.location.href = '/login.html';
+}
+
+document.getElementById('job-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal('job-modal');
+});
+
+loadJobs();
+</script>
+</body>
+</html>

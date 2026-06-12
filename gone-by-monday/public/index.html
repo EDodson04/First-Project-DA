@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Gone by Monday</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-brand">🚛 Gone by Monday</a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link active"><span>Dashboard</span></a>
+    <a href="quotes.html" class="nav-link">
+      Quotes <span id="pending-badge" class="nav-badge" style="display:none">0</span>
+    </a>
+    <a href="jobs.html" class="nav-link"><span>Jobs</span></a>
+    <a href="schedule.html" class="nav-link"><span>Schedule</span></a>
+  </div>
+  <div class="nav-spacer"></div>
+  <button class="btn btn-outline btn-sm" onclick="logout()" style="color:#fff;border-color:rgba(255,255,255,.4)">Sign Out</button>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+    <span id="today-date" style="color:var(--gray-700);font-size:.9rem"></span>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="stat-grid" id="stats-grid">
+    <div class="stat-card orange">
+      <div class="stat-value" id="stat-pending-review">—</div>
+      <div class="stat-label">Quotes to Review</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-value" id="stat-scheduled-today">—</div>
+      <div class="stat-label">Jobs Today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-total-month">—</div>
+      <div class="stat-label">Jobs This Month</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-revenue">—</div>
+      <div class="stat-label">Revenue (Month)</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem" class="two-col">
+
+    <!-- Today's Jobs -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📋 Today's Jobs</span>
+        <a href="schedule.html" class="btn btn-outline btn-sm">Full Schedule</a>
+      </div>
+      <div id="today-jobs-list">
+        <div class="loading"><div class="spinner"></div> Loading...</div>
+      </div>
+    </div>
+
+    <!-- Pending Quotes -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📲 Pending Review</span>
+        <a href="quotes.html" class="btn btn-primary btn-sm">Review All</a>
+      </div>
+      <div id="pending-quotes-list">
+        <div class="loading"><div class="spinner"></div> Loading...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">💬 Recent SMS Activity</span>
+      <button class="btn btn-outline btn-sm" onclick="loadActivity()">Refresh</button>
+    </div>
+    <div class="table-wrap">
+      <table id="activity-table">
+        <thead>
+          <tr>
+            <th>Direction</th>
+            <th>Phone</th>
+            <th>Message</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="activity-body">
+          <tr><td colspan="4" class="loading"><div class="spinner"></div> Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+async function loadDashboard() {
+  document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  try {
+    const stats = await API.get('/api/dashboard/stats');
+    document.getElementById('stat-pending-review').textContent = stats.pending_review;
+    document.getElementById('stat-scheduled-today').textContent = stats.scheduled_today;
+    document.getElementById('stat-total-month').textContent = stats.total_jobs_month;
+    document.getElementById('stat-revenue').textContent = fmt$$(stats.revenue_month);
+    const badge = document.getElementById('pending-badge');
+    if (stats.pending_review > 0) { badge.textContent = stats.pending_review; badge.style.display = ''; }
+  } catch {}
+
+  // Today's Jobs
+  const today = new Date().toLocaleDateString('en-CA');
+  try {
+    const jobs = await API.get(`/api/jobs?date=${today}`);
+    const el = document.getElementById('today-jobs-list');
+    if (!jobs.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><h3>No jobs today</h3></div>';
+    } else {
+      el.innerHTML = `<div style="padding:.5rem 0">` + jobs.map(j => `
+        <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem 1.25rem;border-bottom:1px solid var(--gray-200)">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:.9rem">${j.name || fmtPhone(j.phone)}</div>
+            <div style="font-size:.8rem;color:var(--gray-700)">${j.address || '—'}</div>
+          </div>
+          <div>${statusBadge(j.status)}</div>
+        </div>`).join('') + '</div>';
+    }
+  } catch (err) {
+    document.getElementById('today-jobs-list').innerHTML = '<div class="empty-state"><h3>Failed to load</h3></div>';
+  }
+
+  // Pending Quotes
+  try {
+    const quotes = await API.get('/api/quotes/pending');
+    const el = document.getElementById('pending-quotes-list');
+    if (!quotes.length) {
+      el.innerHTML = '<div class="empty-state"><div class="icon">✅</div><h3>All caught up!</h3></div>';
+    } else {
+      el.innerHTML = quotes.slice(0, 5).map(q => `
+        <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem 1.25rem;border-bottom:1px solid var(--gray-200)">
+          ${q.photo_url ? `<img src="${q.photo_url}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">` : ''}
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:.9rem">${fmtPhone(q.phone)}</div>
+            <div style="font-size:.8rem;color:var(--gray-700)">${q.analysis?.load_size ? loadSize(q.analysis.load_size) + ' · ' : ''}Est. ${fmt$$(q.total_price || q.analysis?.estimated_total)}</div>
+          </div>
+          <a href="quotes.html" class="btn btn-sm btn-orange">Review</a>
+        </div>`).join('');
+    }
+  } catch {}
+}
+
+async function loadActivity() {
+  const body = document.getElementById('activity-body');
+  body.innerHTML = '<tr><td colspan="4"><div class="loading"><div class="spinner"></div></div></td></tr>';
+  try {
+    const rows = await API.get('/api/dashboard/activity');
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--gray-500);padding:2rem">No SMS activity yet</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(r => `
+      <tr>
+        <td><span class="badge ${r.direction === 'inbound' ? 'badge-scheduled' : 'badge-approved'}">${r.direction}</span></td>
+        <td>${fmtPhone(r.phone)}</td>
+        <td style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.body || '(media)'}</td>
+        <td style="white-space:nowrap;font-size:.8rem;color:var(--gray-500)">${fmtDateTime(r.created_at)}</td>
+      </tr>`).join('');
+  } catch {
+    body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--red);padding:1rem">Failed to load activity</td></tr>';
+  }
+}
+
+function logout() {
+  localStorage.removeItem('gbm_token');
+  window.location.href = '/login.html';
+}
+
+loadDashboard();
+loadActivity();
+setInterval(() => { loadDashboard(); loadActivity(); }, 60000);
+</script>
+
+<style>
+@media (max-width: 720px) {
+  .two-col { grid-template-columns: 1fr !important; }
+}
+</style>
+</body>
+</html>
