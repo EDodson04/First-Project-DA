@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ["nodejs_20"]
+nixPkgs = ["nodejs_20", "python3", "gcc", "gnumake"]
 
 [phases.install]
-cmds = ["npm ci --only=production"]
+cmds = ["npm ci --omit=dev"]
 
 [start]
-cmd = "npm start"
+cmd = "node server.js"
