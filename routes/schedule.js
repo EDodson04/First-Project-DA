@@ -69,4 +69,36 @@ router.post('/:date/summary', async (req, res) => {
   }
 });
 
+// GET /api/schedule/zone-week/:startDate — zone-grouped weekly view
+router.get('/zone-week/:startDate', (req, res) => {
+  const start = new Date(req.params.startDate + 'T12:00:00');
+  const week = [];
+
+  for (let i = 0; i < 5; i++) { // Mon–Fri
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const dateStr = d.toLocaleDateString('en-CA');
+    const cap = calculateDayCapacity(dateStr);
+    const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+
+    // Group jobs by zone
+    const zoneGroups = { 1: [], 2: [], 3: [] };
+    for (const job of cap.jobs) {
+      zoneGroups[job.zone || 2].push(job);
+    }
+
+    week.push({
+      date: dateStr,
+      dayName,
+      ...cap,
+      zoneGroups,
+      primaryZone: cap.jobs.length > 0
+        ? Object.entries(zoneGroups).sort((a, b) => b[1].length - a[1].length)[0][0]
+        : null,
+    });
+  }
+
+  res.json(week);
+});
+
 module.exports = router;

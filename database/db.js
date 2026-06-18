@@ -103,7 +103,54 @@ db.exec(`
     twilio_sid TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS cleanout_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_phone TEXT NOT NULL,
+    customer_name TEXT,
+    address TEXT,
+    zone INTEGER DEFAULT 2,
+    description TEXT,
+    photos TEXT DEFAULT '[]',
+    preferred_week TEXT,
+    estimated_hours INTEGER,
+    quoted_price REAL,
+    deposit_amount REAL,
+    status TEXT NOT NULL DEFAULT 'pending_quote',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS zone_schedule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    week_start_date TEXT NOT NULL,
+    day_of_week TEXT NOT NULL,
+    zone INTEGER NOT NULL,
+    estimated_jobs INTEGER DEFAULT 0,
+    estimated_revenue REAL DEFAULT 0,
+    estimated_drive_miles REAL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'planned',
+    UNIQUE(week_start_date, day_of_week)
+  );
 `);
+
+// V2 migrations — add columns if they don't exist
+const v2Migrations = [
+  'ALTER TABLE jobs ADD COLUMN zone INTEGER DEFAULT 2',
+  'ALTER TABLE jobs ADD COLUMN service_type TEXT DEFAULT "curb_pickup"',
+  'ALTER TABLE jobs ADD COLUMN time_window TEXT',
+  'ALTER TABLE jobs ADD COLUMN mileage_miles REAL DEFAULT 0',
+  'ALTER TABLE jobs ADD COLUMN mileage_surcharge REAL DEFAULT 0',
+  'ALTER TABLE jobs ADD COLUMN deposit_amount REAL DEFAULT 0',
+  'ALTER TABLE jobs ADD COLUMN deposit_paid_at TEXT',
+  'ALTER TABLE jobs ADD COLUMN deposit_stripe_id TEXT',
+  'ALTER TABLE jobs ADD COLUMN balance_amount REAL DEFAULT 0',
+  'ALTER TABLE jobs ADD COLUMN balance_paid_at TEXT',
+  'ALTER TABLE jobs ADD COLUMN balance_stripe_id TEXT',
+  'ALTER TABLE jobs ADD COLUMN payment_method TEXT',
+];
+for (const sql of v2Migrations) {
+  try { db.exec(sql); } catch {} // column may already exist
+}
 
 // ─── Conversations ────────────────────────────────────────────────────────────
 
@@ -291,14 +338,25 @@ function getCustomer(id) {
 
 function createJob(customerId, quoteId, fields) {
   const r = db.prepare(`
-    INSERT INTO jobs (customer_id, quote_id, scheduled_date, estimated_duration_minutes, notes)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO jobs (
+      customer_id, quote_id, scheduled_date, estimated_duration_minutes, notes,
+      zone, service_type, time_window, mileage_miles, mileage_surcharge,
+      deposit_amount, balance_amount
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     customerId,
     quoteId || null,
     fields.scheduled_date || null,
     fields.estimated_duration_minutes || 60,
-    fields.notes || null
+    fields.notes || null,
+    fields.zone || 2,
+    fields.service_type || 'curb_pickup',
+    fields.time_window || null,
+    fields.mileage_miles || 0,
+    fields.mileage_surcharge || 0,
+    fields.deposit_amount || 0,
+    fields.balance_amount || 0
   );
   return r.lastInsertRowid;
 }
@@ -360,6 +418,61 @@ function updateJobDate(id, date) {
   db.prepare('UPDATE jobs SET scheduled_date = ? WHERE id = ?').run(date, id);
 }
 
+function updateJobPayment(id, fields) {
+  const setParts = [];
+  const values = [];
+
+  if (fields.deposit_paid_at !== undefined) { setParts.push('deposit_paid_at = ?'); values.push(fields.deposit_paid_at); }
+  if (fields.deposit_stripe_id !== undefined) { setParts.push('deposit_stripe_id = ?'); values.push(fields.deposit_stripe_id); }
+  if (fields.balance_paid_at !== undefined) { setParts.push('balance_paid_at = ?'); values.push(fields.balance_paid_at); }
+  if (fields.balance_stripe_id !== undefined) { setParts.push('balance_stripe_id = ?'); values.push(fields.balance_stripe_id); }
+  if (fields.payment_method !== undefined) { setParts.push('payment_method = ?'); values.push(fields.payment_method); }
+  if (fields.deposit_amount !== undefined) { setParts.push('deposit_amount = ?'); values.push(fields.deposit_amount); }
+  if (fields.balance_amount !== undefined) { setParts.push('balance_amount = ?'); values.push(fields.balance_amount); }
+  if (fields.status !== undefined) { setParts.push('status = ?'); values.push(fields.status); }
+
+  if (setParts.length === 0) return;
+  values.push(id);
+  db.prepare(`UPDATE jobs SET ${setParts.join(', ')} WHERE id = ?`).run(...values);
+}
+
+function getJobsByZone(zone, date) {
+  const where = date
+    ? "WHERE j.zone = ? AND j.scheduled_date = ? AND j.status != 'cancelled'"
+    : "WHERE j.zone = ? AND j.status != 'cancelled'";
+  const query = `
+    SELECT j.*, c.name, c.phone, c.address, c.city, c.state, c.lat, c.lng,
+           q.total_price, q.load_size
+    FROM jobs j
+    JOIN customers c ON j.customer_id = c.id
+    LEFT JOIN quotes q ON j.quote_id = q.id
+    ${where}
+    ORDER BY j.scheduled_date ASC, j.scheduled_order ASC
+  `;
+  return date
+    ? db.prepare(query).all(zone, date)
+    : db.prepare(query).all(zone);
+}
+
+function getWeekJobs(weekStart) {
+  // Returns all jobs Mon–Fri of the week starting at weekStart (YYYY-MM-DD)
+  const start = new Date(weekStart + 'T12:00:00');
+  const end = new Date(start);
+  end.setDate(start.getDate() + 4); // Friday
+  const startStr = start.toLocaleDateString('en-CA');
+  const endStr = end.toLocaleDateString('en-CA');
+
+  return db.prepare(`
+    SELECT j.*, c.name, c.phone, c.address, c.city, c.state, c.lat, c.lng,
+           q.total_price, q.load_size
+    FROM jobs j
+    JOIN customers c ON j.customer_id = c.id
+    LEFT JOIN quotes q ON j.quote_id = q.id
+    WHERE j.scheduled_date >= ? AND j.scheduled_date <= ? AND j.status != 'cancelled'
+    ORDER BY j.scheduled_date ASC, j.scheduled_order ASC, j.id ASC
+  `).all(startStr, endStr);
+}
+
 // ─── Landfill Runs ────────────────────────────────────────────────────────────
 
 function getLandfillRuns(date) {
@@ -377,6 +490,75 @@ function logSms(direction, phone, body, mediaUrl, twilioSid) {
     INSERT INTO sms_log (direction, phone, body, media_url, twilio_sid)
     VALUES (?, ?, ?, ?, ?)
   `).run(direction, phone, body, mediaUrl || null, twilioSid || null);
+}
+
+// ─── Cleanout Requests ────────────────────────────────────────────────────────
+
+function createCleanoutRequest(fields) {
+  const r = db.prepare(`
+    INSERT INTO cleanout_requests (
+      customer_phone, customer_name, address, zone, description, photos, preferred_week
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    fields.customer_phone,
+    fields.customer_name || null,
+    fields.address || null,
+    fields.zone || 2,
+    fields.description || null,
+    fields.photos ? JSON.stringify(fields.photos) : '[]',
+    fields.preferred_week || null
+  );
+  return r.lastInsertRowid;
+}
+
+function getCleanoutRequest(id) {
+  return db.prepare('SELECT * FROM cleanout_requests WHERE id = ?').get(id);
+}
+
+function getCleanoutRequests(status) {
+  if (status) {
+    return db.prepare('SELECT * FROM cleanout_requests WHERE status = ? ORDER BY created_at DESC').all(status);
+  }
+  return db.prepare('SELECT * FROM cleanout_requests ORDER BY created_at DESC').all();
+}
+
+function updateCleanoutStatus(id, status, fields) {
+  const setParts = ['status = ?'];
+  const values = [status];
+
+  if (fields.quoted_price !== undefined) { setParts.push('quoted_price = ?'); values.push(fields.quoted_price); }
+  if (fields.deposit_amount !== undefined) { setParts.push('deposit_amount = ?'); values.push(fields.deposit_amount); }
+  if (fields.estimated_hours !== undefined) { setParts.push('estimated_hours = ?'); values.push(fields.estimated_hours); }
+
+  values.push(id);
+  db.prepare(`UPDATE cleanout_requests SET ${setParts.join(', ')} WHERE id = ?`).run(...values);
+}
+
+// ─── Zone Schedule ────────────────────────────────────────────────────────────
+
+function getZoneSchedule(weekStart) {
+  return db.prepare('SELECT * FROM zone_schedule WHERE week_start_date = ? ORDER BY id ASC').all(weekStart);
+}
+
+function upsertZoneSchedule(weekStart, dayOfWeek, zone, fields) {
+  db.prepare(`
+    INSERT INTO zone_schedule (week_start_date, day_of_week, zone, estimated_jobs, estimated_revenue, estimated_drive_miles, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(week_start_date, day_of_week) DO UPDATE SET
+      zone = excluded.zone,
+      estimated_jobs = excluded.estimated_jobs,
+      estimated_revenue = excluded.estimated_revenue,
+      estimated_drive_miles = excluded.estimated_drive_miles,
+      status = excluded.status
+  `).run(
+    weekStart,
+    dayOfWeek,
+    zone,
+    fields.estimated_jobs || 0,
+    fields.estimated_revenue || 0,
+    fields.estimated_drive_miles || 0,
+    fields.status || 'planned'
+  );
 }
 
 // ─── Dashboard Queries ────────────────────────────────────────────────────────
@@ -399,8 +581,11 @@ module.exports = {
   markQuoteResponse, getPendingReviewQuotes, getQuote, getQuoteByInquiry,
   createCustomer, updateCustomer, getCustomerByPhone, getCustomer,
   createJob, getJob, getJobsByDate, getAllJobs, updateJobCalendarEvent,
-  updateJobStatus, updateJobOrder, updateJobDate,
+  updateJobStatus, updateJobOrder, updateJobDate, updateJobPayment,
+  getJobsByZone, getWeekJobs,
   getLandfillRuns, addLandfillRun,
   logSms,
+  createCleanoutRequest, getCleanoutRequest, getCleanoutRequests, updateCleanoutStatus,
+  getZoneSchedule, upsertZoneSchedule,
   getDashboardStats,
 };

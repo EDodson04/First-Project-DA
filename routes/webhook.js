@@ -5,16 +5,11 @@ const db = require('../database/db');
 const { analyzePhoto } = require('../services/claude');
 const {
   sendSms,
-  buildQuoteMessage,
   buildAddressRequestMessage,
-  buildDayRequestMessage,
-  buildConfirmationMessage,
 } = require('../services/twilio');
-const { geocodeAddress } = require('../services/maps');
+const { geocodeAddress, detectZone, calculateMileageSurcharge } = require('../services/maps');
 const { createJobEvent } = require('../services/googleCalendar');
-const { checkAndNotifyCapacity } = require('../services/scheduler');
-
-const VALID_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const { checkAndNotifyCapacity, calculateDayCapacity } = require('../services/scheduler');
 
 // Validate Twilio signature in production
 function validateRequest(req, res, next) {
@@ -60,6 +55,25 @@ async function handleConversation(phone, body, mediaUrl) {
     return; // Twilio handles opt-out
   }
 
+  // ── CLEANOUT keyword detection ──
+  if (bodyLower === 'cleanout' || bodyLower.includes('full service') || bodyLower.includes('full-service')) {
+    db.createCleanoutRequest({
+      customer_phone: phone,
+      description: body,
+    });
+    const ownerPhone = process.env.OWNER_PHONE;
+    if (ownerPhone) {
+      await sendSms(ownerPhone,
+        `🏠 CLEANOUT request from ${phone}!\n\nMessage: "${body}"\n\nReview in dashboard.`
+      ).catch(() => {});
+    }
+    await sendSms(phone,
+      `Got it! We received your full-service cleanout request.\n\nOur team will review and reach out within 24 hours to discuss the job and provide a quote. Questions? Call/text ${process.env.BUSINESS_PHONE || ''}.`
+    );
+    db.upsertConversation(phone, 'new', {});
+    return;
+  }
+
   switch (state) {
     case 'new':
     case 'awaiting_photo': {
@@ -94,16 +108,6 @@ async function handleConversation(phone, body, mediaUrl) {
         await handleAddressReceived(phone, body, data);
       } else {
         await sendSms(phone, buildAddressRequestMessage());
-      }
-      break;
-    }
-
-    case 'awaiting_day': {
-      const dayMatch = VALID_DAYS.find(d => bodyLower.startsWith(d));
-      if (dayMatch) {
-        await handleDayReceived(phone, dayMatch, data);
-      } else {
-        await sendSms(phone, `Please reply with a day: Monday, Tuesday, Wednesday, Thursday, Friday, or Saturday.`);
       }
       break;
     }
@@ -215,97 +219,148 @@ async function handleQuoteDeclined(phone, data) {
 }
 
 async function handleAddressReceived(phone, address, data) {
-  // Geocode the address
   const fullAddress = `${address}, Cache Valley, UT`;
   let geo = null;
-  try {
-    geo = await geocodeAddress(fullAddress);
-  } catch (err) {
-    console.error('Geocode error:', err.message);
-  }
+  try { geo = await geocodeAddress(fullAddress); } catch {}
 
-  const customerData = {
-    ...data,
-    raw_address: address,
-    lat: geo?.lat || null,
-    lng: geo?.lng || null,
-    formatted_address: geo?.formatted || address,
-  };
+  const zone = geo ? detectZone(geo.formatted || address) : 2;
+  const { miles, surcharge } = await calculateMileageSurcharge(fullAddress).catch(() => ({ miles: 0, surcharge: 0 }));
 
-  db.upsertConversation(phone, 'awaiting_day', customerData);
-  await sendSms(phone, buildDayRequestMessage());
-}
+  // Find best day for this zone this week
+  const scheduledDate = await findBestZoneDay(zone);
+  const timeWindow = 'morning'; // default; refined by optimizer later
 
-async function handleDayReceived(phone, day, data) {
-  const capitalDay = day.charAt(0).toUpperCase() + day.slice(1);
-
-  // Create customer record
   const customerId = db.createCustomer({
     inquiry_id: data.inquiry_id || null,
     phone,
-    address: data.raw_address || data.formatted_address || 'Unknown',
-    city: 'Logan',
+    address,
+    city: geo?.formatted?.split(',')[1]?.trim() || '',
     state: 'UT',
-    preferred_day: capitalDay,
-    lat: data.lat,
-    lng: data.lng,
+    lat: geo?.lat,
+    lng: geo?.lng,
   });
 
-  // Create job record
-  const scheduledDate = getNextOccurrenceOfDay(capitalDay);
+  // Update quote with mileage surcharge if applicable
+  let totalPrice = data.quote_total || 0;
+  if (data.quote_id && surcharge > 0) {
+    const quote = db.getQuote(data.quote_id);
+    if (quote) {
+      totalPrice = quote.total_price + surcharge;
+      // Mileage is silently folded into other_surcharge
+      db.updateQuote(data.quote_id, { ...quote, other_surcharge: (quote.other_surcharge || 0) + surcharge, other_surcharge_note: 'mileage' });
+    }
+  } else if (data.quote_id) {
+    const quote = db.getQuote(data.quote_id);
+    if (quote) totalPrice = quote.total_price;
+  }
+
+  const depositAmount = Math.ceil(totalPrice / 2 / 5) * 5; // round up to nearest $5
+  const balanceAmount = Math.max(0, totalPrice - depositAmount);
+
   const jobId = db.createJob(customerId, data.quote_id || null, {
     scheduled_date: scheduledDate,
-    estimated_duration_minutes: 60,
+    estimated_duration_minutes: data.estimated_duration_minutes || 60,
+    zone,
+    service_type: 'curb_pickup',
+    time_window: timeWindow,
+    mileage_miles: miles,
+    mileage_surcharge: surcharge,
+    deposit_amount: depositAmount,
+    balance_amount: balanceAmount,
   });
 
-  // Create Google Calendar event
+  // Create deposit payment link
+  let depositLink = null;
+  try {
+    const { createPaymentLink } = require('../services/stripe');
+    depositLink = await createPaymentLink(
+      depositAmount,
+      'Gone by Monday — Pickup Deposit',
+      { job_id: String(jobId), payment_type: 'deposit' }
+    );
+  } catch (err) {
+    console.error('Stripe deposit link error:', err.message);
+  }
+
+  // Calendar event
   const job = db.getJob(jobId);
   const customer = db.getCustomer(customerId);
   if (job && customer) {
     try {
-      const eventId = await createJobEvent({ ...job, load_size: data.load_size }, customer);
+      const eventId = await createJobEvent(job, customer);
       if (eventId) db.updateJobCalendarEvent(jobId, eventId);
     } catch (err) {
-      console.error('Calendar event error:', err.message);
+      console.error('Calendar error:', err.message);
     }
   }
 
-  // Check capacity and notify if needed
+  // Check capacity
   if (scheduledDate) {
-    await checkAndNotifyCapacity(scheduledDate).catch(e => console.error(e.message));
+    await checkAndNotifyCapacity(scheduledDate).catch(() => {});
   }
 
   db.upsertConversation(phone, 'confirmed', { ...data, customer_id: customerId, job_id: jobId });
 
-  const formatted = scheduledDate
+  const dateDisplay = scheduledDate
     ? new Date(scheduledDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-    : capitalDay;
+    : 'next available date';
 
-  await sendSms(phone, buildConfirmationMessage(null, formatted, process.env.BUSINESS_PHONE));
+  const windowText = timeWindow === 'morning' ? '8am–noon' : 'noon–4pm';
 
-  // Notify owner of new confirmed job
+  let msg = `Thanks for confirming! Your pickup is scheduled for ${dateDisplay} between ${windowText}. We'll text you when we're on our way.`;
+  if (depositLink) {
+    msg += `\n\nYour deposit ($${depositAmount}): ${depositLink}`;
+  }
+  msg += `\n\n— Gone by Monday`;
+
+  await sendSms(phone, msg);
+
+  // Notify owner
   const ownerPhone = process.env.OWNER_PHONE;
   if (ownerPhone) {
     await sendSms(ownerPhone,
-      `✅ New job confirmed!\n📍 ${data.raw_address || 'Address TBD'}\n📅 ${formatted}\n📞 ${phone}`
-    ).catch(e => console.error(e.message));
+      `✅ New job confirmed!\n📍 ${address}\n📅 ${dateDisplay} (${windowText})\n🗺 Zone ${zone}\n📞 ${phone}\n💰 Deposit: $${depositAmount} ${depositLink ? '(link sent)' : '(no link)'}`
+    ).catch(() => {});
   }
 }
 
-function getNextOccurrenceOfDay(dayName) {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const target = days.indexOf(dayName);
-  if (target === -1) return null;
-  const now = new Date();
+async function findBestZoneDay(zone) {
   const tz = process.env.BUSINESS_TIMEZONE || 'America/Denver';
-  const todayStr = now.toLocaleDateString('en-CA', { timeZone: tz });
-  const today = new Date(todayStr + 'T12:00:00');
-  const current = today.getDay();
-  let diff = target - current;
-  if (diff <= 0) diff += 7;
-  const next = new Date(today);
-  next.setDate(today.getDate() + diff);
-  return next.toLocaleDateString('en-CA');
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+  const todayDate = new Date(today + 'T12:00:00');
+
+  // Look at next 10 weekdays
+  const candidates = [];
+  let d = new Date(todayDate);
+  d.setDate(d.getDate() + 1); // start tomorrow
+
+  while (candidates.length < 10) {
+    const dow = d.getDay();
+    if (dow >= 1 && dow <= 5) { // Mon–Fri
+      candidates.push(d.toLocaleDateString('en-CA'));
+    }
+    d.setDate(d.getDate() + 1);
+  }
+
+  // Find a day that already has jobs in this zone and has capacity
+  for (const date of candidates) {
+    const cap = calculateDayCapacity(date);
+    if (!cap.atCapacity) {
+      const zoneJobs = cap.jobs.filter(j => (j.zone || 2) === zone);
+      if (zoneJobs.length > 0) return date; // existing zone day
+    }
+  }
+
+  // No existing zone day — return first available empty weekday
+  for (const date of candidates) {
+    const cap = calculateDayCapacity(date);
+    if (!cap.atCapacity && cap.jobCount === 0) return date;
+  }
+
+  // All days have jobs — pick least loaded
+  const caps = candidates.map(date => ({ date, cap: calculateDayCapacity(date) }));
+  const sorted = caps.filter(c => !c.cap.atCapacity).sort((a, b) => a.cap.jobCount - b.cap.jobCount);
+  return sorted[0]?.date || candidates[0];
 }
 
 // ── Status callback (delivery receipts) ──────────────────────────────────────

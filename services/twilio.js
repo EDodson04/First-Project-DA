@@ -68,6 +68,18 @@ function buildReminderMessage(job) {
   return `Heads up! The Gone by Monday crew is about 30 minutes away for your pickup at ${job.address}. See you soon! 🚛`;
 }
 
+function buildDepositReminderMessage(job) {
+  const depositAmt = job.deposit_amount ? `$${job.deposit_amount.toFixed(2)}` : 'your deposit';
+  return `Reminder: Your Gone by Monday pickup is scheduled for ${job.scheduled_date || 'soon'} but we haven't received your deposit yet (${depositAmt}). Please pay to hold your slot, or reply CANCEL to release it.`;
+}
+
+function buildBalanceMessage(job, payLink) {
+  const bal = job.balance_amount ? `$${job.balance_amount.toFixed(2)}` : 'your balance';
+  const venmo = process.env.VENMO_HANDLE ? `\n\nOr Venmo @${process.env.VENMO_HANDLE}` : '';
+  const linkText = payLink ? `\nPay here: ${payLink}` : '';
+  return `Job complete! Thanks for choosing Gone by Monday.\n\nBalance due: ${bal}${linkText}${venmo}`;
+}
+
 function buildRouteSummary(date, jobs) {
   const lines = [`📋 Route for ${date}:`, ``];
   jobs.forEach((job, i) => {
@@ -100,4 +112,6 @@ module.exports = {
   buildConfirmationMessage,
   buildReminderMessage,
   buildRouteSummary,
+  buildDepositReminderMessage,
+  buildBalanceMessage,
 };

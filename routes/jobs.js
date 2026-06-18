@@ -84,8 +84,48 @@ router.delete('/:id', async (req, res) => {
 });
 
 // POST /api/jobs/:id/complete
-router.post('/:id/complete', (req, res) => {
+router.post('/:id/complete', async (req, res) => {
+  const job = db.getJob(req.params.id);
+  if (!job) return res.status(404).json({ error: 'Not found' });
+
   db.updateJobStatus(req.params.id, 'completed');
+
+  // Send balance payment link
+  if (job.phone && job.balance_amount > 0) {
+    try {
+      const { createPaymentLink } = require('../services/stripe');
+      const balanceLink = await createPaymentLink(
+        job.balance_amount,
+        `Gone by Monday — Balance Payment`,
+        { job_id: String(job.id), payment_type: 'balance' }
+      );
+      const venmo = process.env.VENMO_HANDLE ? `\n\nOr Venmo: @${process.env.VENMO_HANDLE}` : '';
+      const payMsg = balanceLink
+        ? `Job complete! Balance due: $${job.balance_amount.toFixed(2)}\n\nPay here: ${balanceLink}${venmo}\n\nThanks for choosing Gone by Monday!`
+        : `Job complete! Balance due: $${job.balance_amount.toFixed(2)}${venmo}\n\nThanks for choosing Gone by Monday!`;
+      await sendSms(job.phone, payMsg).catch(e => console.error(e.message));
+    } catch (err) {
+      console.error('Balance payment error:', err.message);
+    }
+  }
+
+  res.json({ success: true });
+});
+
+// POST /api/jobs/:id/payment — manually record payment
+router.post('/:id/payment', (req, res) => {
+  const { payment_type, method, amount } = req.body;
+  const now = new Date().toISOString();
+  const fields = {};
+  if (payment_type === 'deposit') {
+    fields.deposit_paid_at = now;
+    fields.payment_method = method || 'manual';
+    fields.status = 'confirmed';
+  } else {
+    fields.balance_paid_at = now;
+    fields.status = 'paid';
+  }
+  db.updateJobPayment(req.params.id, fields);
   res.json({ success: true });
 });
 
