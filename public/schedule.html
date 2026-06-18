@@ -5,6 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Schedule — Gone by Monday</title>
 <link rel="stylesheet" href="/css/styles.css">
+<style>
+.zone-tag {
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 700;
+  padding: .15rem .55rem;
+  border-radius: 20px;
+  letter-spacing: .3px;
+}
+.zone-1 { background: #e3f2fd; color: #1565c0; }
+.zone-2 { background: var(--green-pale); color: var(--green); }
+.zone-3 { background: #fff3e0; color: var(--orange); }
+.zone-mixed { background: var(--gray-200); color: var(--gray-700); }
+.week-columns {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: .75rem;
+}
+@media (max-width: 900px) { .week-columns { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .week-columns { grid-template-columns: 1fr; } }
+.deposit-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: .3rem;
+}
+.deposit-paid { background: var(--green); }
+.deposit-unpaid { background: var(--orange); }
+</style>
 </head>
 <body>
 
@@ -17,6 +46,7 @@
     </a>
     <a href="jobs.html" class="nav-link">Jobs</a>
     <a href="schedule.html" class="nav-link active">Schedule</a>
+    <a href="cleanouts.html" class="nav-link">Cleanouts</a>
   </div>
   <div class="nav-spacer"></div>
   <button class="btn btn-outline btn-sm" onclick="logout()" style="color:#fff;border-color:rgba(255,255,255,.4)">Sign Out</button>
@@ -25,12 +55,24 @@
 <div class="container">
   <div class="page-header">
     <h1 class="page-title">Weekly Schedule</h1>
-    <div style="display:flex;gap:.5rem;align-items:center">
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
       <button class="btn btn-outline btn-sm" onclick="prevWeek()">‹ Prev</button>
       <span id="week-label" style="font-size:.9rem;font-weight:500;min-width:200px;text-align:center"></span>
       <button class="btn btn-outline btn-sm" onclick="nextWeek()">Next ›</button>
       <button class="btn btn-primary btn-sm" onclick="goToToday()">Today</button>
     </div>
+  </div>
+
+  <!-- Zone legend -->
+  <div style="display:flex;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap">
+    <span style="font-size:.82rem;font-weight:500;color:var(--gray-700)">Zones:</span>
+    <span class="zone-tag zone-1">🔵 North Valley</span>
+    <span class="zone-tag zone-2">🟢 Central Valley</span>
+    <span class="zone-tag zone-3">🟠 South Valley</span>
+    <span style="font-size:.82rem;color:var(--gray-500);margin-left:auto">
+      <span class="deposit-dot deposit-paid"></span>Deposit paid
+      <span class="deposit-dot deposit-unpaid" style="margin-left:.5rem"></span>Deposit pending
+    </span>
   </div>
 
   <div id="week-grid">
@@ -42,6 +84,9 @@
 <script>
 let weekStart = getMonday(new Date());
 
+const ZONE_LABELS = { '1': '🔵 North', '2': '🟢 Central', '3': '🟠 South' };
+const ZONE_CLASS  = { '1': 'zone-1', '2': 'zone-2', '3': 'zone-3' };
+
 function getMonday(d) {
   const day = d.getDay();
   const diff = (day === 0 ? -6 : 1) - day;
@@ -51,24 +96,10 @@ function getMonday(d) {
   return mon;
 }
 
-function dateStr(d) {
-  return d.toLocaleDateString('en-CA');
-}
-
-function prevWeek() {
-  weekStart.setDate(weekStart.getDate() - 7);
-  loadWeek();
-}
-
-function nextWeek() {
-  weekStart.setDate(weekStart.getDate() + 7);
-  loadWeek();
-}
-
-function goToToday() {
-  weekStart = getMonday(new Date());
-  loadWeek();
-}
+function dateStr(d) { return d.toLocaleDateString('en-CA'); }
+function prevWeek() { weekStart.setDate(weekStart.getDate() - 7); loadWeek(); }
+function nextWeek() { weekStart.setDate(weekStart.getDate() + 7); loadWeek(); }
+function goToToday() { weekStart = getMonday(new Date()); loadWeek(); }
 
 async function loadWeek() {
   const start = dateStr(weekStart);
@@ -78,7 +109,13 @@ async function loadWeek() {
   grid.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
 
   try {
-    const days = await API.get(`/api/schedule/week/${start}`);
+    // Try zone-week endpoint first (V2), fall back to week
+    let days;
+    try {
+      days = await API.get(`/api/schedule/zone-week/${start}`);
+    } catch {
+      days = await API.get(`/api/schedule/week/${start}`);
+    }
     renderWeek(days);
   } catch (err) {
     grid.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><h3>${err.message}</h3></div>`;
@@ -89,21 +126,25 @@ function renderWeek(days) {
   const today = new Date().toLocaleDateString('en-CA');
   const grid = document.getElementById('week-grid');
 
-  if (days.every(d => d.jobCount === 0)) {
+  // Filter Mon–Fri
+  const weekdays = days.filter(d => {
+    const dow = new Date(d.date + 'T12:00:00').getDay();
+    return dow >= 1 && dow <= 5;
+  });
+
+  if (weekdays.every(d => d.jobCount === 0)) {
     grid.innerHTML = '<div class="empty-state"><div class="icon">📭</div><h3>No jobs scheduled this week</h3></div>';
     return;
   }
 
-  grid.innerHTML = days.filter(d => {
-    const dow = new Date(d.date + 'T12:00:00').getDay();
-    return dow >= 1 && dow <= 6; // Mon–Sat only
-  }).map(d => dayCard(d, today)).join('');
+  grid.innerHTML = `<div class="week-columns">${weekdays.map(d => dayCard(d, today)).join('')}</div>`;
 }
 
 function dayCard(d, today) {
   const pct = Math.min(100, d.jobCount > 0 ? (d.usedMinutes / d.totalMinutes) * 100 : 0);
   const isToday = d.date === today;
-  const dayName = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const dayName = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+  const dateLabel = new Date(d.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   let headerClass = '';
   if (d.atCapacity) headerClass = 'at-capacity';
@@ -111,61 +152,90 @@ function dayCard(d, today) {
 
   const fillClass = pct >= 100 ? 'full' : pct >= 75 ? 'high' : '';
 
+  // Determine zone(s) for this day
+  const zoneGroups = d.zoneGroups || {};
+  const primaryZone = d.primaryZone || null;
+  let zoneTag = '';
+  if (primaryZone) {
+    const cls = ZONE_CLASS[primaryZone] || 'zone-mixed';
+    const hasMixed = Object.values(zoneGroups).filter(g => g.length > 0).length > 1;
+    zoneTag = `<span class="zone-tag ${cls}">${ZONE_LABELS[primaryZone] || 'Zone ' + primaryZone}</span>`;
+    if (hasMixed) zoneTag += ` <span class="zone-tag zone-mixed">⚠️ Mixed</span>`;
+  }
+
+  // Revenue estimate
+  const revenue = d.jobs ? d.jobs.reduce((sum, j) => sum + (j.total_price || 0), 0) : 0;
+
   return `
-  <div class="day-card" ${isToday ? 'style="border:2px solid var(--green)"' : ''}>
+  <div class="day-card" ${isToday ? 'style="outline:2px solid var(--green);outline-offset:2px"' : ''}>
     <div class="day-header ${headerClass}">
       <div>
         <div class="day-name">${isToday ? '📍 ' : ''}${dayName}</div>
-        <div class="day-date">${d.jobCount} job${d.jobCount !== 1 ? 's' : ''} · ${d.usedMinutes} min · ${d.landfillRuns} landfill run${d.landfillRuns !== 1 ? 's' : ''}</div>
+        <div class="day-date" style="font-size:.78rem">${dateLabel} · ${d.jobCount} job${d.jobCount !== 1 ? 's' : ''}</div>
       </div>
-      <div style="display:flex;gap:.4rem">
-        ${d.atCapacity ? '<span style="font-size:.75rem;background:rgba(255,255,255,.2);padding:.2rem .5rem;border-radius:20px">AT CAPACITY</span>' : ''}
-        ${d.jobCount > 0 ? `<button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:none" onclick="optimizeDay('${d.date}')">🗺 Optimize</button>` : ''}
-        ${d.jobCount > 0 ? `<button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:none" onclick="sendSummary('${d.date}')">📱 Summary</button>` : ''}
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">
+        ${d.atCapacity ? '<span style="font-size:.68rem;background:rgba(255,255,255,.2);padding:.15rem .45rem;border-radius:20px">FULL</span>' : ''}
+        ${revenue > 0 ? `<span style="font-size:.75rem;opacity:.9">${fmt$$(revenue)}</span>` : ''}
       </div>
     </div>
 
-    <div class="capacity-bar">
+    ${zoneTag ? `<div style="padding:.4rem .75rem .25rem;display:flex;gap:.3rem;flex-wrap:wrap">${zoneTag}</div>` : ''}
+
+    <div class="capacity-bar" style="margin:.4rem .75rem">
       <div class="capacity-fill ${fillClass}" style="width:${pct}%"></div>
     </div>
 
-    <div class="stop-list">
-      ${d.jobs.length === 0
-        ? '<div style="padding:.5rem 0;color:var(--gray-500);font-size:.875rem">No jobs scheduled</div>'
-        : d.jobs.map((j, i) => stopItem(j, i + 1)).join('')}
+    <div class="stop-list" style="padding:0 .75rem .5rem">
+      ${!d.jobs || d.jobs.length === 0
+        ? '<div style="padding:.5rem 0;color:var(--gray-500);font-size:.8rem">No jobs</div>'
+        : d.jobs.map((j, i) => compactStop(j, i + 1)).join('')}
     </div>
 
-    <div style="padding:.5rem 1.25rem 1rem;display:flex;gap:.5rem">
-      <button class="btn btn-outline btn-sm" onclick="addLandfillRun('${d.date}')">+ Landfill Run</button>
-      <span style="font-size:.8rem;color:var(--gray-500);align-self:center">${d.remainingMinutes > 0 ? d.remainingMinutes + ' min available' : 'Day full'}</span>
+    <div style="padding:.4rem .75rem .75rem;display:flex;gap:.35rem;flex-wrap:wrap">
+      ${d.jobCount > 0 ? `<button class="btn btn-outline btn-sm" style="font-size:.75rem" onclick="optimizeDay('${d.date}')">🗺</button>` : ''}
+      ${d.jobCount > 0 ? `<button class="btn btn-outline btn-sm" style="font-size:.75rem" onclick="sendSummary('${d.date}')">📱</button>` : ''}
+      <button class="btn btn-outline btn-sm" style="font-size:.75rem" onclick="addLandfillRun('${d.date}')">+🏭</button>
+      <span style="font-size:.75rem;color:var(--gray-500);align-self:center">${d.remainingMinutes > 0 ? d.remainingMinutes + 'm left' : 'Full'}</span>
     </div>
   </div>`;
 }
 
-function stopItem(j, n) {
+function compactStop(j, n) {
+  const depositIndicator = j.deposit_paid_at
+    ? `<span class="deposit-dot deposit-paid" title="Deposit paid"></span>`
+    : j.deposit_amount > 0
+      ? `<span class="deposit-dot deposit-unpaid" title="Deposit pending"></span>`
+      : '';
+
+  const zone = j.zone || 2;
+  const zoneTag = `<span class="zone-tag ${ZONE_CLASS[zone] || 'zone-2'}" style="font-size:.65rem;padding:.1rem .35rem">${zone}</span>`;
+  const win = j.time_window === 'morning' ? 'AM' : j.time_window === 'afternoon' ? 'PM' : '';
+
   return `
-  <div class="stop-item">
-    <div class="stop-num">${n}</div>
-    <div class="stop-info">
-      <div class="stop-name">${j.name || fmtPhone(j.phone)}</div>
-      <div class="stop-address">📍 ${j.address || '—'}${j.city ? ', ' + j.city : ''}</div>
-      <div class="stop-meta">
-        ${j.load_size ? loadSize(j.load_size) + ' · ' : ''}
-        ~${j.estimated_duration_minutes || 60} min
-        ${j.drive_time_from_prev_minutes > 0 ? ' · 🚗 +' + j.drive_time_from_prev_minutes + ' min drive' : ''}
-        ${j.total_price ? ' · ' + fmt$$(j.total_price) : ''}
+  <div class="stop-item" style="padding:.5rem 0;gap:.5rem">
+    <div class="stop-num" style="width:22px;height:22px;font-size:.72rem">${n}</div>
+    <div class="stop-info" style="min-width:0">
+      <div class="stop-name" style="font-size:.82rem;display:flex;align-items:center;gap:.3rem">
+        ${depositIndicator}${j.name || fmtPhone(j.phone)}
+        ${zoneTag}
+        ${win ? `<span style="font-size:.68rem;color:var(--gray-500)">${win}</span>` : ''}
+      </div>
+      <div class="stop-address" style="font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${j.address || '—'}</div>
+      <div class="stop-meta" style="font-size:.72rem">
+        ${j.load_size ? loadSize(j.load_size) + ' · ' : ''}~${j.estimated_duration_minutes || 60}m
+        ${j.drive_time_from_prev_minutes > 0 ? ' +' + j.drive_time_from_prev_minutes + 'm' : ''}
       </div>
     </div>
-    <div class="stop-actions">
-      <button class="btn btn-sm" style="background:var(--orange);color:#fff" onclick="sendReminder(${j.id})" title="Send reminder">📱</button>
-      <button class="btn btn-sm btn-primary" onclick="completeJob(${j.id})" title="Complete">✓</button>
+    <div class="stop-actions" style="gap:.25rem">
+      <button class="btn btn-sm" style="background:var(--orange);color:#fff;padding:.25rem .45rem" onclick="sendReminder(${j.id})" title="30-min reminder">📱</button>
+      <button class="btn btn-sm btn-primary" style="padding:.25rem .45rem" onclick="completeJob(${j.id})" title="Complete">✓</button>
     </div>
   </div>`;
 }
 
 async function optimizeDay(date) {
   try {
-    const result = await API.post(`/api/schedule/${date}/optimize`);
+    await API.post(`/api/schedule/${date}/optimize`);
     showToast('Route optimized!', 'success');
     loadWeek();
   } catch (err) {

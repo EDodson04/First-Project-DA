@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cleanouts — Gone by Monday</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-brand">🚛 Gone by Monday</a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link">Dashboard</a>
+    <a href="quotes.html" class="nav-link">
+      Quotes <span id="pending-badge" class="nav-badge" style="display:none">0</span>
+    </a>
+    <a href="jobs.html" class="nav-link">Jobs</a>
+    <a href="schedule.html" class="nav-link">Schedule</a>
+    <a href="cleanouts.html" class="nav-link active">Cleanouts</a>
+  </div>
+  <div class="nav-spacer"></div>
+  <button class="btn btn-outline btn-sm" onclick="logout()" style="color:#fff;border-color:rgba(255,255,255,.4)">Sign Out</button>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">Full-Service Cleanouts</h1>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <select id="filter-status" class="form-control" style="width:200px" onchange="loadCleanouts()">
+        <option value="pending_quote">Needs Quote</option>
+        <option value="quoted">Quoted</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="completed">Completed</option>
+        <option value="">All Requests</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="loadCleanouts()">↺ Refresh</button>
+    </div>
+  </div>
+
+  <div id="cleanouts-container">
+    <div class="loading"><div class="spinner"></div> Loading cleanout requests...</div>
+  </div>
+</div>
+
+<!-- Quote Modal -->
+<div id="quote-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="quote-modal-title">Set Cleanout Quote</span>
+      <button class="modal-close" onclick="closeModal('quote-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Total Price ($)</label>
+        <input type="number" id="quoted-price" class="form-control" min="0" step="25" placeholder="500">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Deposit Amount ($) — defaults to 50%</label>
+        <input type="number" id="deposit-amount" class="form-control" min="0" step="25" placeholder="250">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Estimated Hours</label>
+        <input type="number" id="estimated-hours" class="form-control" min="1" max="8" placeholder="4">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('quote-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitQuote()">Save Quote</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+let currentCleanoutId = null;
+
+const ZONE_LABELS = { 1: '🔵 North', 2: '🟢 Central', 3: '🟠 South' };
+
+async function loadCleanouts() {
+  const status = document.getElementById('filter-status').value;
+  const container = document.getElementById('cleanouts-container');
+  container.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+
+  try {
+    const url = status ? `/api/cleanouts?status=${status}` : '/api/cleanouts';
+    const items = await API.get(url);
+    renderCleanouts(items);
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><h3>${err.message}</h3></div>`;
+  }
+}
+
+function renderCleanouts(items) {
+  const container = document.getElementById('cleanouts-container');
+  if (!items.length) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">🏠</div><h3>No cleanout requests</h3></div>';
+    return;
+  }
+
+  container.innerHTML = `<div style="display:flex;flex-direction:column;gap:1rem">${items.map(cleanoutCard).join('')}</div>`;
+}
+
+function cleanoutCard(c) {
+  const zoneLabel = ZONE_LABELS[c.zone] || '🟢 Central';
+  const isPending = c.status === 'pending_quote';
+  const photos = Array.isArray(c.photos) ? c.photos : [];
+
+  return `
+  <div class="card" id="cleanout-${c.id}">
+    <div class="card-header">
+      <div>
+        <div style="font-weight:700;font-size:1rem">${c.customer_name || fmtPhone(c.customer_phone)}</div>
+        <div style="font-size:.85rem;color:var(--gray-500)">${fmtPhone(c.customer_phone)} · ${fmtDateTime(c.created_at)}</div>
+      </div>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <span style="font-size:.8rem;background:var(--gray-100);border-radius:20px;padding:.2rem .7rem">${zoneLabel}</span>
+        ${statusBadge(c.status)}
+      </div>
+    </div>
+    <div class="card-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+        <div>
+          <div class="form-label">Address</div>
+          <div style="font-weight:500">${c.address || '—'}</div>
+        </div>
+        <div>
+          <div class="form-label">Preferred Week</div>
+          <div style="font-weight:500">${c.preferred_week || '—'}</div>
+        </div>
+        ${c.estimated_hours ? `
+        <div>
+          <div class="form-label">Est. Hours</div>
+          <div style="font-weight:500">${c.estimated_hours} hrs</div>
+        </div>` : ''}
+        ${c.quoted_price ? `
+        <div>
+          <div class="form-label">Quote</div>
+          <div style="font-weight:700;color:var(--green);font-size:1.1rem">${fmt$$(c.quoted_price)}</div>
+        </div>
+        <div>
+          <div class="form-label">Deposit</div>
+          <div style="font-weight:500">${fmt$$(c.deposit_amount)}</div>
+        </div>` : ''}
+      </div>
+
+      ${c.description ? `
+      <div style="background:var(--gray-50);border-radius:6px;padding:.75rem;font-size:.875rem;color:var(--gray-700);margin-bottom:.75rem">
+        📝 ${c.description}
+      </div>` : ''}
+
+      ${photos.length ? `
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+        ${photos.map(p => `<img src="${p}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;cursor:zoom-in" onclick="window.open('${p}','_blank')">`).join('')}
+      </div>` : ''}
+    </div>
+
+    <div style="padding:.75rem 1.25rem;border-top:1px solid var(--gray-200);display:flex;gap:.5rem">
+      ${isPending ? `
+        <button class="btn btn-primary" onclick="openQuoteModal(${c.id}, '${c.customer_name || c.customer_phone}')">
+          💰 Set Quote
+        </button>` : ''}
+      ${c.status === 'quoted' ? `
+        <button class="btn btn-primary" onclick="markConfirmed(${c.id})">✓ Mark Confirmed</button>` : ''}
+      ${c.status === 'confirmed' ? `
+        <button class="btn btn-primary" onclick="markComplete(${c.id})">✓ Mark Complete</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function openQuoteModal(id, name) {
+  currentCleanoutId = id;
+  document.getElementById('quote-modal-title').textContent = `Quote for ${name}`;
+  document.getElementById('quoted-price').value = '';
+  document.getElementById('deposit-amount').value = '';
+  document.getElementById('estimated-hours').value = '';
+  document.getElementById('quote-modal').classList.remove('hidden');
+}
+
+async function submitQuote() {
+  const price = parseFloat(document.getElementById('quoted-price').value);
+  if (!price) { showToast('Enter a price', 'error'); return; }
+
+  const deposit = parseFloat(document.getElementById('deposit-amount').value) || Math.ceil(price / 2 / 5) * 5;
+  const hours = parseInt(document.getElementById('estimated-hours').value) || null;
+
+  try {
+    await API.put(`/api/cleanouts/${currentCleanoutId}/quote`, {
+      quoted_price: price,
+      deposit_amount: deposit,
+      estimated_hours: hours,
+    });
+    showToast('Quote saved!', 'success');
+    closeModal('quote-modal');
+    loadCleanouts();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function markConfirmed(id) {
+  try {
+    await API.put(`/api/cleanouts/${id}/quote`, { quoted_price: 0, status: 'confirmed' });
+    showToast('Marked confirmed');
+    loadCleanouts();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function markComplete(id) {
+  if (!confirm('Mark this cleanout as completed?')) return;
+  try {
+    await API.post(`/api/cleanouts/${id}/complete`);
+    showToast('Cleanout complete!', 'success');
+    loadCleanouts();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+function logout() {
+  localStorage.removeItem('gbm_token');
+  window.location.href = '/login.html';
+}
+
+loadCleanouts();
+</script>
+</body>
+</html>

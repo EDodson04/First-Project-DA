@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gone by Monday — Cache Valley Hauling & Junk Removal</title>
+<meta name="description" content="Weekend mess? Gone by Monday. Cache Valley's hauling and junk removal crew. Text us a photo and get a quote in minutes.">
+<meta property="og:title" content="Gone by Monday — Cache Valley Hauling">
+<meta property="og:description" content="Weekend mess? Gone by Monday. Text a photo, get a quote, we haul it away. Serving Logan, Smithfield, Hyrum & all of Cache Valley.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/images/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root {
+    --green: #2d6a4f;
+    --green-light: #40916c;
+    --green-pale: #d8f3dc;
+    --orange: #e76f00;
+    --gray-50: #fafafa;
+    --gray-100: #f5f5f5;
+    --gray-200: #eeeeee;
+    --gray-700: #616161;
+    --gray-900: #212121;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); color: var(--gray-900); line-height: 1.6; }
+  a { color: inherit; }
+  img { max-width: 100%; }
+
+  /* ── Nav ── */
+  .nav {
+    background: var(--green);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  }
+  .nav-brand { color: #fff; font-size: 1.1rem; font-weight: 700; text-decoration: none; }
+  .nav-phone { color: rgba(255,255,255,.9); font-size: .9rem; text-decoration: none; }
+  .nav-phone:hover { color: #fff; }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, var(--green) 0%, #1b4332 100%);
+    color: #fff;
+    text-align: center;
+    padding: 5rem 1.5rem 4rem;
+  }
+  .hero-eyebrow {
+    display: inline-block;
+    background: rgba(255,255,255,.15);
+    color: rgba(255,255,255,.9);
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: .3rem .9rem;
+    border-radius: 20px;
+    margin-bottom: 1.25rem;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+    letter-spacing: -.5px;
+  }
+  .hero h1 span { color: #b7e4c7; }
+  .hero p {
+    font-size: 1.15rem;
+    color: rgba(255,255,255,.85);
+    max-width: 560px;
+    margin: 0 auto 2.5rem;
+  }
+  .hero-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-hero-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    background: var(--orange);
+    color: #fff;
+    padding: .9rem 2rem;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: opacity .15s;
+    white-space: nowrap;
+  }
+  .btn-hero-primary:hover { opacity: .9; }
+  .btn-hero-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    background: rgba(255,255,255,.15);
+    color: #fff;
+    border: 2px solid rgba(255,255,255,.4);
+    padding: .9rem 2rem;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn-hero-secondary:hover { background: rgba(255,255,255,.25); }
+
+  /* ── Section ── */
+  section { padding: 4rem 1.5rem; }
+  .section-inner { max-width: 1100px; margin: 0 auto; }
+  .section-label {
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: .75rem;
+  }
+  .section-title {
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+    letter-spacing: -.3px;
+  }
+  .section-sub { color: var(--gray-700); font-size: 1rem; max-width: 560px; margin-bottom: 3rem; }
+
+  /* ── How It Works ── */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 2rem;
+  }
+  .step { text-align: center; padding: 1.5rem; }
+  .step-num {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--green-pale);
+    color: var(--green);
+    font-size: 1.4rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+  }
+  .step h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: .4rem; }
+  .step p { color: var(--gray-700); font-size: .9rem; }
+
+  /* ── Pricing ── */
+  .pricing-bg { background: var(--gray-50); }
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  .price-card {
+    background: #fff;
+    border-radius: var(--radius);
+    padding: 1.75rem 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    border: 2px solid transparent;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .price-card:hover { border-color: var(--green-light); box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+  .price-card.featured { border-color: var(--green); }
+  .price-icon { font-size: 2rem; margin-bottom: .5rem; }
+  .price-label { font-size: .85rem; font-weight: 600; color: var(--gray-700); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .35rem; }
+  .price-amount { font-size: 2.2rem; font-weight: 800; color: var(--green); line-height: 1; margin-bottom: .25rem; }
+  .price-note { font-size: .8rem; color: var(--gray-700); }
+  .price-disclaimer {
+    text-align: center;
+    font-size: .83rem;
+    color: var(--gray-700);
+    margin-top: 1.5rem;
+  }
+
+  /* ── Zone Map ── */
+  .zone-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+  .zone-card {
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    border-left: 5px solid;
+  }
+  .zone-card.zone-1 { background: #e3f2fd; border-color: #1565c0; }
+  .zone-card.zone-2 { background: var(--green-pale); border-color: var(--green); }
+  .zone-card.zone-3 { background: #fff3e0; border-color: var(--orange); }
+  .zone-name { font-weight: 700; font-size: 1rem; margin-bottom: .25rem; }
+  .zone-cities { font-size: .85rem; color: var(--gray-700); }
+
+  /* ── CTA Banner ── */
+  .cta-banner {
+    background: var(--green);
+    color: #fff;
+    text-align: center;
+    padding: 4rem 1.5rem;
+  }
+  .cta-banner h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; margin-bottom: .75rem; }
+  .cta-banner p { font-size: 1rem; color: rgba(255,255,255,.85); margin-bottom: 2rem; }
+  .cta-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+  /* ── Cleanout Form ── */
+  .form-section { background: #fff; }
+  .cleanout-form {
+    max-width: 560px;
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    padding: 2rem;
+    border: 1px solid var(--gray-200);
+  }
+  .form-group { margin-bottom: 1rem; }
+  .form-label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: .35rem; }
+  .form-control {
+    width: 100%;
+    padding: .6rem .85rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 7px;
+    font-size: .95rem;
+    font-family: var(--font);
+  }
+  .form-control:focus { outline: 2px solid var(--green-light); border-color: transparent; }
+  textarea.form-control { min-height: 90px; resize: vertical; }
+  .btn-submit {
+    background: var(--green);
+    color: #fff;
+    border: none;
+    padding: .75rem 2rem;
+    border-radius: 7px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    transition: background .15s;
+  }
+  .btn-submit:hover { background: var(--green-light); }
+  .form-success {
+    background: var(--green-pale);
+    border: 1px solid var(--green-light);
+    border-radius: 7px;
+    padding: 1rem;
+    color: var(--green);
+    font-weight: 500;
+    display: none;
+  }
+
+  /* ── Footer ── */
+  footer {
+    background: var(--gray-900);
+    color: rgba(255,255,255,.7);
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    font-size: .875rem;
+  }
+  footer strong { color: #fff; }
+  footer .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-top: .75rem; flex-wrap: wrap; }
+  footer a { color: rgba(255,255,255,.6); text-decoration: none; }
+  footer a:hover { color: #fff; }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .hero { padding: 3.5rem 1.25rem 3rem; }
+    .hero-buttons { flex-direction: column; align-items: center; }
+    .btn-hero-primary, .btn-hero-secondary { width: 100%; justify-content: center; }
+    .cta-buttons { flex-direction: column; align-items: center; }
+    section { padding: 3rem 1.25rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="#" class="nav-brand">🚛 Gone by Monday</a>
+  <a href="sms:TWILIO_PHONE" class="nav-phone" id="nav-phone">📱 Text Us a Photo</a>
+</nav>
+
+<!-- Hero -->
+<section class="hero" style="padding-top:5rem;padding-bottom:4rem">
+  <div class="hero-eyebrow">📍 Cache Valley, Utah</div>
+  <h1>Weekend mess?<br><span>Gone by Monday.</span></h1>
+  <p>Snap a photo of your junk — we'll text you a quote in minutes. One price, no surprises, hauled away fast.</p>
+  <div class="hero-buttons">
+    <a href="#" class="btn-hero-primary" id="quote-btn">📸 Text Us a Photo</a>
+    <a href="#cleanout-form" class="btn-hero-secondary">🏠 Schedule a Cleanout</a>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section>
+  <div class="section-inner">
+    <div class="section-label">Simple Process</div>
+    <h2 class="section-title">Three steps, then it's gone.</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">📸</div>
+        <h3>Snap a Photo</h3>
+        <p>Text us a photo of what you need hauled. We'll take it from there.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">💬</div>
+        <h3>Get a Quote</h3>
+        <p>We review the photo and text you a flat-rate price — no hidden fees, no fuel surcharges.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">🚛</div>
+        <h3>We Haul It Away</h3>
+        <p>Confirm the quote, pay a small deposit, and we show up on your scheduled day.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section class="pricing-bg">
+  <div class="section-inner">
+    <div class="section-label">Transparent Pricing</div>
+    <h2 class="section-title">One flat price. No surprises.</h2>
+    <p class="section-sub">Price is based on how much of our trailer your stuff fills up. Text us a photo and we'll give you an exact quote.</p>
+    <div class="price-grid">
+      <div class="price-card">
+        <div class="price-icon">📦</div>
+        <div class="price-label">Quarter Load</div>
+        <div class="price-amount">$100<span style="font-size:1rem;font-weight:400;color:var(--gray-700)">+</span></div>
+        <div class="price-note">A few bags, small furniture</div>
+      </div>
+      <div class="price-card featured">
+        <div class="price-icon">📦📦</div>
+        <div class="price-label">Half Load</div>
+        <div class="price-amount">$150<span style="font-size:1rem;font-weight:400;color:var(--gray-700)">+</span></div>
+        <div class="price-note">Most popular — garage cleanouts</div>
+      </div>
+      <div class="price-card">
+        <div class="price-icon">📦📦📦</div>
+        <div class="price-label">¾ Load</div>
+        <div class="price-amount">$200<span style="font-size:1rem;font-weight:400;color:var(--gray-700)">+</span></div>
+        <div class="price-note">Large yard cleanouts</div>
+      </div>
+      <div class="price-card">
+        <div class="price-icon">🚛</div>
+        <div class="price-label">Full Load</div>
+        <div class="price-amount">$250<span style="font-size:1rem;font-weight:400;color:var(--gray-700)">+</span></div>
+        <div class="price-note">Full trailer, max haul</div>
+      </div>
+    </div>
+    <p class="price-disclaimer">Prices are starting points — appliances, tires, hazmat, and distance may affect final quote. We'll always tell you the exact price before you commit. 50% deposit holds your spot; balance due on completion.</p>
+  </div>
+</section>
+
+<!-- Service Area -->
+<section>
+  <div class="section-inner">
+    <div class="section-label">Service Area</div>
+    <h2 class="section-title">All of Cache Valley, covered.</h2>
+    <p class="section-sub">We run dedicated routes through each zone Monday–Friday so we're always nearby.</p>
+    <div class="zone-grid">
+      <div class="zone-card zone-1">
+        <div class="zone-name">🔵 North Valley</div>
+        <div class="zone-cities">Hyde Park, Smithfield, Richmond, Lewiston, Newton, Cornish</div>
+      </div>
+      <div class="zone-card zone-2">
+        <div class="zone-name">🟢 Central Valley</div>
+        <div class="zone-cities">North Logan, Logan, Providence, River Heights, Millville</div>
+      </div>
+      <div class="zone-card zone-3">
+        <div class="zone-name">🟠 South Valley</div>
+        <div class="zone-cities">Nibley, Hyrum, Wellsville, Mendon, Paradise</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Cleanout Form -->
+<section class="form-section" id="cleanout-form">
+  <div class="section-inner">
+    <div class="section-label">Full-Service Cleanout</div>
+    <h2 class="section-title">We do the work — you just unlock the door.</h2>
+    <p class="section-sub" style="margin-bottom:1.5rem">Our crew loads, sorts, and hauls everything. Perfect for estates, moves, and serious garage cleanouts.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start">
+      <div class="cleanout-form">
+        <div id="form-success" class="form-success">
+          ✅ Request received! We'll reach out within 24 hours to discuss your job and provide a quote.
+        </div>
+        <form id="cleanout-request-form">
+          <div class="form-group">
+            <label class="form-label">Your Phone Number *</label>
+            <input type="tel" class="form-control" name="customer_phone" placeholder="(435) 555-0000" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Your Name</label>
+            <input type="text" class="form-control" name="customer_name" placeholder="First and last name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pickup Address *</label>
+            <input type="text" class="form-control" name="address" placeholder="123 Main St, Logan, UT" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Describe the Job</label>
+            <textarea class="form-control" name="description" placeholder="What needs to go? Approximate amount? Any stairs or tight spaces?"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Preferred Week</label>
+            <input type="text" class="form-control" name="preferred_week" placeholder="e.g. Week of July 7">
+          </div>
+          <button type="submit" class="btn-submit">Request a Cleanout Quote →</button>
+        </form>
+      </div>
+      <div>
+        <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:1rem">What's included:</h3>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:.75rem">
+          <li>✅ Full crew for loading and hauling</li>
+          <li>✅ We carry everything to the truck</li>
+          <li>✅ Landfill fees included</li>
+          <li>✅ Resaleable items flagged to save you money</li>
+          <li>✅ Half-day or full-day blocks available</li>
+          <li>✅ Before/after photos on request</li>
+        </ul>
+        <div style="margin-top:1.75rem;padding:1.25rem;background:var(--green-pale);border-radius:var(--radius)">
+          <strong>Or just text "CLEANOUT" to</strong><br>
+          <span id="cleanout-phone" style="font-size:1.2rem;font-weight:700;color:var(--green)">our number</span><br>
+          <span style="font-size:.85rem;color:var(--gray-700)">We'll reach out to schedule a walkthrough.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-banner">
+  <h2>Ready to clear the clutter?</h2>
+  <p>Text us a photo and we'll get back to you with a price — usually within the hour.</p>
+  <div class="cta-buttons">
+    <a href="#" class="btn-hero-primary" id="cta-quote-btn">📸 Get a Free Quote</a>
+    <a href="#cleanout-form" class="btn-hero-secondary">🏠 Schedule a Cleanout</a>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <strong>Gone by Monday</strong> — Cache Valley Hauling &amp; Junk Removal<br>
+  Serving Cache Valley, Utah · Monday through Friday<br>
+  <div class="footer-links">
+    <a href="#" id="footer-phone">📱 Text Us</a>
+    <a href="/login.html">Owner Login</a>
+  </div>
+  <div style="margin-top:1rem;font-size:.8rem;opacity:.5">© 2025 Gone by Monday</div>
+</footer>
+
+<script>
+// Inject Twilio phone number into SMS links
+const TWILIO_NUMBER = ''; // Set by server if needed, or hardcode here
+
+function setPhoneLinks() {
+  // Try to fetch from /health or use a fallback
+  const phone = TWILIO_NUMBER || '';
+  const smsHref = phone ? `sms:${phone}?body=Hi!%20I%27d%20like%20a%20quote.%20%5BSend%20a%20photo%5D` : '#';
+  const cleanoutSmsHref = phone ? `sms:${phone}?body=CLEANOUT` : '#';
+
+  document.querySelectorAll('#quote-btn, #cta-quote-btn').forEach(el => {
+    if (phone) el.href = smsHref;
+  });
+  document.querySelectorAll('#nav-phone, #footer-phone').forEach(el => {
+    if (phone) el.href = smsHref;
+  });
+  const cleanoutPhoneEl = document.getElementById('cleanout-phone');
+  if (cleanoutPhoneEl && phone) {
+    cleanoutPhoneEl.textContent = phone.replace('+1', '').replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+  }
+}
+setPhoneLinks();
+
+// Cleanout form submission
+document.getElementById('cleanout-request-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const btn = form.querySelector('button[type=submit]');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  const data = Object.fromEntries(new FormData(form));
+
+  try {
+    const res = await fetch('/api/cleanouts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Request failed');
+    form.style.display = 'none';
+    document.getElementById('form-success').style.display = 'block';
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Request a Cleanout Quote →';
+    alert('Something went wrong. Please text us directly instead.');
+  }
+});
+</script>
+</body>
+</html>
