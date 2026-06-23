@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
-const { sendSms, buildQuoteMessage } = require('../services/twilio');
+const { emailCustomerQuote } = require('../services/email');
+const { createDepositSession } = require('../services/stripe');
 
-// GET /api/quotes — all pending review
+// GET /api/quotes
 router.get('/', (req, res) => {
   const status = req.query.status;
   let quotes;
@@ -25,7 +26,7 @@ router.get('/', (req, res) => {
   res.json(quotes.map(q => ({ ...q, analysis: tryParse(q.analysis) })));
 });
 
-// GET /api/quotes/pending — shortcut
+// GET /api/quotes/pending
 router.get('/pending', (req, res) => {
   const quotes = db.getPendingReviewQuotes();
   res.json(quotes.map(q => ({ ...q, analysis: tryParse(q.analysis) })));
@@ -38,7 +39,7 @@ router.get('/:id', (req, res) => {
   res.json({ ...quote, analysis: tryParse(quote.analysis) });
 });
 
-// PUT /api/quotes/:id — update fields
+// PUT /api/quotes/:id
 router.put('/:id', (req, res) => {
   const quote = db.getQuote(req.params.id);
   if (!quote) return res.status(404).json({ error: 'Not found' });
@@ -61,7 +62,7 @@ router.put('/:id', (req, res) => {
   res.json(db.getQuote(req.params.id));
 });
 
-// POST /api/quotes/:id/approve — approve and send quote to customer
+// POST /api/quotes/:id/approve — approve and email customer
 router.post('/:id/approve', async (req, res) => {
   const quote = db.getQuote(req.params.id);
   if (!quote) return res.status(404).json({ error: 'Not found' });
@@ -71,20 +72,53 @@ router.post('/:id/approve', async (req, res) => {
 
   db.approveQuote(req.params.id);
 
-  // Send quote to customer
+  // Look up customer email
+  const customerEmail = req.body.customer_email || getCustomerEmail(quote);
+  const customerName  = req.body.customer_name  || getCustomerName(quote);
+
+  if (!customerEmail) {
+    db.markQuoteSent(req.params.id);
+    return res.json({ success: true, message: 'Quote approved — no customer email on file, send manually.' });
+  }
+
   try {
-    const msg = buildQuoteMessage(quote, process.env.BUSINESS_NAME);
-    await sendSms(quote.phone, msg);
+    // Create Stripe Checkout Session (saves card for later balance charge)
+    const depositAmount = Math.ceil(quote.total_price / 2 / 5) * 5;
+    let checkoutUrl = null;
+    let stripeCustomerId = null;
+
+    try {
+      const session = await createDepositSession(
+        depositAmount,
+        `Gone by Monday — 50% Deposit`,
+        {
+          job_id: '', // will be filled when job is created on deposit payment
+          quote_id: String(req.params.id),
+          customer_name: customerName || '',
+          customer_email: customerEmail,
+          payment_type: 'deposit',
+        }
+      );
+      checkoutUrl = session?.url || null;
+      stripeCustomerId = session?.customerId || null;
+    } catch (stripeErr) {
+      console.error('Stripe session error (non-fatal):', stripeErr.message);
+    }
+
+    // Store checkout URL + deposit amount on the quote
+    if (checkoutUrl || depositAmount) {
+      db.updateQuoteStripe(req.params.id, { stripe_checkout_url: checkoutUrl, deposit_amount: depositAmount });
+    }
+
+    const BASE = process.env.BASE_URL || 'https://gone-by-monday.onrender.com';
+    const approveUrl = checkoutUrl || `${BASE}/approve.html?quote_id=${req.params.id}`;
+
+    await emailCustomerQuote({ customerEmail, customerName, quote, approveUrl });
     db.markQuoteSent(req.params.id);
 
-    // Update conversation state
-    const conv = db.getConversation(quote.phone);
-    const convData = conv ? conv.data : {};
-    db.upsertConversation(quote.phone, 'quote_sent', { ...convData, quote_id: parseInt(req.params.id) });
-
-    res.json({ success: true, message: 'Quote approved and sent' });
+    res.json({ success: true, message: 'Quote approved and emailed to customer', checkout_url: checkoutUrl });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to send SMS: ' + err.message });
+    res.status(500).json({ error: 'Failed to send email: ' + err.message });
   }
 });
 
@@ -92,26 +126,48 @@ router.post('/:id/approve', async (req, res) => {
 router.post('/:id/reject', (req, res) => {
   const quote = db.getQuote(req.params.id);
   if (!quote) return res.status(404).json({ error: 'Not found' });
-
   db.rejectQuote(req.params.id);
   if (quote.inquiry_id) db.updateInquiryStatus(quote.inquiry_id, 'declined');
-
   res.json({ success: true });
 });
 
-// POST /api/quotes/:id/resend — resend an already-sent quote
+// POST /api/quotes/:id/resend — resend email
 router.post('/:id/resend', async (req, res) => {
   const quote = db.getQuote(req.params.id);
   if (!quote) return res.status(404).json({ error: 'Not found' });
 
+  const customerEmail = req.body.customer_email || getCustomerEmail(quote);
+  const customerName  = req.body.customer_name  || getCustomerName(quote);
+  if (!customerEmail) return res.status(400).json({ error: 'No customer email on file' });
+
   try {
-    const msg = buildQuoteMessage(quote, process.env.BUSINESS_NAME);
-    await sendSms(quote.phone, msg);
+    const BASE = process.env.BASE_URL || 'https://gone-by-monday.onrender.com';
+    const approveUrl = quote.stripe_checkout_url || `${BASE}/approve.html?quote_id=${quote.id}`;
+    await emailCustomerQuote({ customerEmail, customerName, quote, approveUrl });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getCustomerEmail(quote) {
+  // Try to find from the customer record linked to this inquiry
+  if (!quote.inquiry_id) return null;
+  const customer = db.db.prepare(
+    'SELECT email FROM customers WHERE inquiry_id = ? ORDER BY id DESC LIMIT 1'
+  ).get(quote.inquiry_id);
+  return customer?.email || null;
+}
+
+function getCustomerName(quote) {
+  if (!quote.inquiry_id) return null;
+  const customer = db.db.prepare(
+    'SELECT name FROM customers WHERE inquiry_id = ? ORDER BY id DESC LIMIT 1'
+  ).get(quote.inquiry_id);
+  return customer?.name || null;
+}
 
 function tryParse(str) {
   if (!str) return null;

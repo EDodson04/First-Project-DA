@@ -133,8 +133,8 @@ db.exec(`
   );
 `);
 
-// V2 migrations — add columns if they don't exist
-const v2Migrations = [
+// V2 + V3 migrations — add columns if they don't exist
+const migrations = [
   'ALTER TABLE jobs ADD COLUMN zone INTEGER DEFAULT 2',
   'ALTER TABLE jobs ADD COLUMN service_type TEXT DEFAULT "curb_pickup"',
   'ALTER TABLE jobs ADD COLUMN time_window TEXT',
@@ -147,8 +147,15 @@ const v2Migrations = [
   'ALTER TABLE jobs ADD COLUMN balance_paid_at TEXT',
   'ALTER TABLE jobs ADD COLUMN balance_stripe_id TEXT',
   'ALTER TABLE jobs ADD COLUMN payment_method TEXT',
+  // V3 — email flow
+  'ALTER TABLE jobs ADD COLUMN customer_email TEXT',
+  'ALTER TABLE jobs ADD COLUMN stripe_customer_id TEXT',
+  'ALTER TABLE jobs ADD COLUMN stripe_payment_method_id TEXT',
+  'ALTER TABLE customers ADD COLUMN email TEXT',
+  'ALTER TABLE quotes ADD COLUMN stripe_checkout_url TEXT',
+  'ALTER TABLE quotes ADD COLUMN deposit_amount REAL DEFAULT 0',
 ];
-for (const sql of v2Migrations) {
+for (const sql of migrations) {
   try { db.exec(sql); } catch {} // column may already exist
 }
 
@@ -272,6 +279,11 @@ function markQuoteSent(id) {
   db.prepare("UPDATE quotes SET status = 'sent', sent_at = datetime('now') WHERE id = ?").run(id);
 }
 
+function updateQuoteStripe(id, { stripe_checkout_url, deposit_amount } = {}) {
+  db.prepare('UPDATE quotes SET stripe_checkout_url=COALESCE(?,stripe_checkout_url), deposit_amount=COALESCE(?,deposit_amount) WHERE id=?')
+    .run(stripe_checkout_url || null, deposit_amount || null, id);
+}
+
 function markQuoteResponse(id, response) {
   db.prepare("UPDATE quotes SET status = ?, customer_response = ?, responded_at = datetime('now') WHERE id = ?")
     .run(response === 'YES' ? 'accepted' : 'declined', response, id);
@@ -302,12 +314,13 @@ function getQuoteByInquiry(inquiryId) {
 
 function createCustomer(fields) {
   const r = db.prepare(`
-    INSERT INTO customers (inquiry_id, phone, name, address, city, state, zip, preferred_day, lat, lng)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO customers (inquiry_id, phone, name, email, address, city, state, zip, preferred_day, lat, lng)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     fields.inquiry_id || null,
-    fields.phone,
+    fields.phone || '',
     fields.name || null,
+    fields.email || null,
     fields.address || null,
     fields.city || 'Logan',
     fields.state || 'UT',
@@ -430,6 +443,9 @@ function updateJobPayment(id, fields) {
   if (fields.deposit_amount !== undefined) { setParts.push('deposit_amount = ?'); values.push(fields.deposit_amount); }
   if (fields.balance_amount !== undefined) { setParts.push('balance_amount = ?'); values.push(fields.balance_amount); }
   if (fields.status !== undefined) { setParts.push('status = ?'); values.push(fields.status); }
+  if (fields.customer_email !== undefined) { setParts.push('customer_email = ?'); values.push(fields.customer_email); }
+  if (fields.stripe_customer_id !== undefined) { setParts.push('stripe_customer_id = ?'); values.push(fields.stripe_customer_id); }
+  if (fields.stripe_payment_method_id !== undefined) { setParts.push('stripe_payment_method_id = ?'); values.push(fields.stripe_payment_method_id); }
 
   if (setParts.length === 0) return;
   values.push(id);
@@ -577,7 +593,7 @@ module.exports = {
   db,
   getConversation, upsertConversation,
   createInquiry, getInquiry, updateInquiryStatus, getPendingInquiries,
-  createQuote, updateQuote, approveQuote, rejectQuote, markQuoteSent,
+  createQuote, updateQuote, updateQuoteStripe, approveQuote, rejectQuote, markQuoteSent,
   markQuoteResponse, getPendingReviewQuotes, getQuote, getQuoteByInquiry,
   createCustomer, updateCustomer, getCustomerByPhone, getCustomer,
   createJob, getJob, getJobsByDate, getAllJobs, updateJobCalendarEvent,

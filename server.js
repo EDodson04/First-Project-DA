@@ -10,14 +10,15 @@ const PORT = parseInt(process.env.PORT, 10) || 3000;
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'Gone by Monday' }));
 
 // ── Lazy-load routes so a bad import doesn't kill the health check ────────────
-const webhookRoutes   = require('./routes/webhook');
-const quotesRoutes    = require('./routes/quotes');
-const jobsRoutes      = require('./routes/jobs');
-const scheduleRoutes  = require('./routes/schedule');
-const dashboardRoutes = require('./routes/dashboard');
-const cleanoutsRoutes = require('./routes/cleanouts');
-const paymentsRoutes  = require('./routes/payments');
-const { requireAuth } = require('./middleware/auth');
+const webhookRoutes    = require('./routes/webhook');
+const inquiriesRoutes  = require('./routes/inquiries');
+const quotesRoutes     = require('./routes/quotes');
+const jobsRoutes       = require('./routes/jobs');
+const scheduleRoutes   = require('./routes/schedule');
+const dashboardRoutes  = require('./routes/dashboard');
+const cleanoutsRoutes  = require('./routes/cleanouts');
+const paymentsRoutes   = require('./routes/payments');
+const { requireAuth }  = require('./middleware/auth');
 
 // ── Stripe webhook — MUST be before bodyParser (needs raw body) ───────────────
 app.use('/api/payments', paymentsRoutes);
@@ -26,6 +27,9 @@ app.use('/api/payments', paymentsRoutes);
 app.use(bodyParser.urlencoded({ extended: false })); // Twilio sends form-encoded
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── Public API — no auth required ────────────────────────────────────────────
+app.use('/api/inquiries', inquiriesRoutes);  // web form photo submission
 
 // ── Twilio Webhooks (no auth — Twilio signature validates these) ──────────────
 app.use('/webhook', webhookRoutes);

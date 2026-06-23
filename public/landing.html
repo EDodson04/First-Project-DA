@@ -217,7 +217,7 @@
   .cta-banner p { font-size: 1rem; color: rgba(255,255,255,.85); margin-bottom: 2rem; }
   .cta-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
 
-  /* ── Cleanout Form ── */
+  /* ── Forms ── */
   .form-section { background: #fff; }
   .cleanout-form {
     max-width: 560px;
@@ -251,6 +251,20 @@
     transition: background .15s;
   }
   .btn-submit:hover { background: var(--green-light); }
+  .btn-submit-orange {
+    background: var(--orange);
+    color: #fff;
+    border: none;
+    padding: .85rem 2rem;
+    border-radius: 7px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    transition: background .15s;
+    margin-top: .5rem;
+  }
+  .btn-submit-orange:hover { background: #c85e00; }
   .form-success {
     background: var(--green-pale);
     border: 1px solid var(--green-light);
@@ -260,6 +274,31 @@
     font-weight: 500;
     display: none;
   }
+  /* Photo upload area */
+  .photo-drop {
+    border: 2px dashed var(--gray-200);
+    border-radius: 10px;
+    padding: 2rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    background: #fff;
+    position: relative;
+  }
+  .photo-drop:hover, .photo-drop.dragover { border-color: var(--green-light); background: var(--green-pale); }
+  .photo-drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .photo-drop p { font-size: .9rem; color: var(--gray-700); margin-top: .5rem; }
+  .photo-drop .icon { font-size: 2.5rem; }
+  .photo-preview { margin-top: .75rem; }
+  .photo-preview img { max-width: 100%; max-height: 200px; border-radius: 8px; object-fit: cover; }
+  .quote-form-wrap {
+    max-width: 560px;
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    padding: 2rem;
+    border: 1px solid var(--gray-200);
+  }
+  .quote-form-section { background: #f0faf4; }
 
   /* ── Footer ── */
   footer {
@@ -289,7 +328,7 @@
 <!-- Nav -->
 <nav class="nav">
   <a href="#" class="nav-brand">🚛 Gone by Monday</a>
-  <a href="sms:TWILIO_PHONE" class="nav-phone" id="nav-phone">📱 Text Us a Photo</a>
+  <a href="#quote-form" class="nav-phone" id="nav-phone">📸 Get a Free Quote</a>
 </nav>
 
 <!-- Hero -->
@@ -298,7 +337,7 @@
   <h1>Weekend mess?<br><span>Gone by Monday.</span></h1>
   <p>Snap a photo of your junk — we'll text you a quote in minutes. One price, no surprises, hauled away fast.</p>
   <div class="hero-buttons">
-    <a href="#" class="btn-hero-primary" id="quote-btn">📸 Text Us a Photo</a>
+    <a href="#quote-form" class="btn-hero-primary" id="quote-btn">📸 Get a Free Quote</a>
     <a href="#cleanout-form" class="btn-hero-secondary">🏠 Schedule a Cleanout</a>
   </div>
 </section>
@@ -324,6 +363,53 @@
         <h3>We Haul It Away</h3>
         <p>Confirm the quote, pay a small deposit, and we show up on your scheduled day.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Quote Request Form -->
+<section class="quote-form-section" id="quote-form">
+  <div class="section-inner">
+    <div class="section-label">Get a Free Quote</div>
+    <h2 class="section-title">Upload a photo — get a quote in minutes.</h2>
+    <p class="section-sub" style="margin-bottom:1.5rem">No phone call needed. Snap a pic of your junk, fill out the form, and we'll email you a quote and Stripe payment link to lock in your spot.</p>
+    <div class="quote-form-wrap">
+      <div id="quote-success" class="form-success">
+        ✅ Request received! We'll review your photo and email you a quote within a few hours.
+      </div>
+      <form id="quote-request-form" enctype="multipart/form-data">
+        <div class="form-group">
+          <label class="form-label">Your Name *</label>
+          <input type="text" class="form-control" name="name" placeholder="First and last name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Email *</label>
+          <input type="email" class="form-control" name="email" placeholder="you@example.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input type="tel" class="form-control" name="phone" placeholder="(435) 555-0000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pickup Address *</label>
+          <input type="text" class="form-control" name="address" placeholder="123 Main St, Logan, UT" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Photo of Items *</label>
+          <div class="photo-drop" id="photo-drop">
+            <input type="file" name="photo" id="photo-input" accept="image/*" required>
+            <div class="icon">📸</div>
+            <strong>Click or drag a photo here</strong>
+            <p>JPG, PNG, HEIC up to 15 MB</p>
+          </div>
+          <div class="photo-preview" id="photo-preview"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Describe the Items (optional)</label>
+          <textarea class="form-control" name="message" placeholder="Furniture, yard waste, appliances, tires…"></textarea>
+        </div>
+        <button type="submit" class="btn-submit-orange">📸 Send My Photo for a Quote →</button>
+      </form>
     </div>
   </div>
 </section>
@@ -447,7 +533,7 @@
   <h2>Ready to clear the clutter?</h2>
   <p>Text us a photo and we'll get back to you with a price — usually within the hour.</p>
   <div class="cta-buttons">
-    <a href="#" class="btn-hero-primary" id="cta-quote-btn">📸 Get a Free Quote</a>
+    <a href="#quote-form" class="btn-hero-primary" id="cta-quote-btn">📸 Get a Free Quote</a>
     <a href="#cleanout-form" class="btn-hero-secondary">🏠 Schedule a Cleanout</a>
   </div>
 </div>
@@ -464,27 +550,54 @@
 </footer>
 
 <script>
-// Inject Twilio phone number into SMS links
-const TWILIO_NUMBER = ''; // Set by server if needed, or hardcode here
+// Photo upload form — posts multipart to /api/inquiries
+const photoInput = document.getElementById('photo-input');
+const photoDrop  = document.getElementById('photo-drop');
+const photoPreview = document.getElementById('photo-preview');
 
-function setPhoneLinks() {
-  // Try to fetch from /health or use a fallback
-  const phone = TWILIO_NUMBER || '';
-  const smsHref = phone ? `sms:${phone}?body=Hi!%20I%27d%20like%20a%20quote.%20%5BSend%20a%20photo%5D` : '#';
-  const cleanoutSmsHref = phone ? `sms:${phone}?body=CLEANOUT` : '#';
+photoInput.addEventListener('change', () => {
+  const file = photoInput.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  photoPreview.innerHTML = `<img src="${url}" alt="Preview">`;
+});
 
-  document.querySelectorAll('#quote-btn, #cta-quote-btn').forEach(el => {
-    if (phone) el.href = smsHref;
-  });
-  document.querySelectorAll('#nav-phone, #footer-phone').forEach(el => {
-    if (phone) el.href = smsHref;
-  });
-  const cleanoutPhoneEl = document.getElementById('cleanout-phone');
-  if (cleanoutPhoneEl && phone) {
-    cleanoutPhoneEl.textContent = phone.replace('+1', '').replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+photoDrop.addEventListener('dragover', e => { e.preventDefault(); photoDrop.classList.add('dragover'); });
+photoDrop.addEventListener('dragleave', () => photoDrop.classList.remove('dragover'));
+photoDrop.addEventListener('drop', e => {
+  e.preventDefault();
+  photoDrop.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    photoInput.files = dt.files;
+    photoPreview.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Preview">`;
   }
-}
-setPhoneLinks();
+});
+
+document.getElementById('quote-request-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const btn = form.querySelector('button[type=submit]');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const fd = new FormData(form);
+    const res = await fetch('/api/inquiries', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Request failed');
+    }
+    form.style.display = 'none';
+    document.getElementById('quote-success').style.display = 'block';
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '📸 Send My Photo for a Quote →';
+    alert('Something went wrong: ' + err.message + '\nPlease try again or email us.');
+  }
+});
 
 // Cleanout form submission
 document.getElementById('cleanout-request-form').addEventListener('submit', async (e) => {
@@ -508,7 +621,7 @@ document.getElementById('cleanout-request-form').addEventListener('submit', asyn
   } catch (err) {
     btn.disabled = false;
     btn.textContent = 'Request a Cleanout Quote →';
-    alert('Something went wrong. Please text us directly instead.');
+    alert('Something went wrong. Please email us instead.');
   }
 });
 </script>

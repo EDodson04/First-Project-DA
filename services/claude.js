@@ -32,21 +32,30 @@ async function downloadImageAsBase64(url) {
   return { base64, contentType: contentType.split(';')[0] };
 }
 
-async function analyzePhoto(photoUrl) {
+// photoUrl: Twilio MMS URL (fetched with basic auth)
+// preloaded: { base64, mimeType } for web form uploads already in memory
+async function analyzePhoto(photoUrl, preloaded = null) {
   let imageContent;
 
-  try {
-    const { base64, contentType } = await downloadImageAsBase64(photoUrl);
+  if (preloaded?.base64) {
     imageContent = {
       type: 'image',
-      source: { type: 'base64', media_type: contentType, data: base64 },
+      source: { type: 'base64', media_type: preloaded.mimeType || 'image/jpeg', data: preloaded.base64 },
     };
-  } catch (err) {
-    console.error('Image download failed, using URL:', err.message);
-    imageContent = {
-      type: 'image',
-      source: { type: 'url', url: photoUrl },
-    };
+  } else {
+    try {
+      const { base64, contentType } = await downloadImageAsBase64(photoUrl);
+      imageContent = {
+        type: 'image',
+        source: { type: 'base64', media_type: contentType, data: base64 },
+      };
+    } catch (err) {
+      console.error('Image download failed, using URL:', err.message);
+      imageContent = {
+        type: 'image',
+        source: { type: 'url', url: photoUrl },
+      };
+    }
   }
 
   const systemPrompt = `You are an expert estimator for a hauling and junk removal company in Cache Valley, Utah called "Gone by Monday."

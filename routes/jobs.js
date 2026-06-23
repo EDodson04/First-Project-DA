@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database/db');
 const { createJobEvent, deleteJobEvent } = require('../services/googleCalendar');
-const { sendSms } = require('../services/twilio');
+const { emailCustomerReceipt } = require('../services/email');
+const { chargeStoredCard, createPaymentLink } = require('../services/stripe');
 
 // GET /api/jobs
 router.get('/', (req, res) => {
@@ -49,7 +50,7 @@ router.post('/', async (req, res) => {
   res.status(201).json(db.getJob(jobId));
 });
 
-// PUT /api/jobs/:id — update job
+// PUT /api/jobs/:id
 router.put('/:id', async (req, res) => {
   const job = db.getJob(req.params.id);
   if (!job) return res.status(404).json({ error: 'Not found' });
@@ -83,38 +84,67 @@ router.delete('/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// POST /api/jobs/:id/complete
+// POST /api/jobs/:id/complete — charge balance and email receipt
 router.post('/:id/complete', async (req, res) => {
   const job = db.getJob(req.params.id);
   if (!job) return res.status(404).json({ error: 'Not found' });
 
   db.updateJobStatus(req.params.id, 'completed');
 
-  // Send balance payment link
-  if (job.phone && job.balance_amount > 0) {
+  const balanceAmount = job.balance_amount || 0;
+  const customerEmail = job.customer_email || getCustomerEmailFromJob(job);
+  const customerName  = job.name || null;
+  let amountCharged = 0;
+
+  if (balanceAmount > 0) {
+    // Try auto-charge via saved card
+    if (job.stripe_customer_id && job.stripe_payment_method_id) {
+      try {
+        await chargeStoredCard(
+          balanceAmount,
+          'Gone by Monday — Balance Payment',
+          job.stripe_customer_id,
+          job.stripe_payment_method_id,
+          { job_id: String(job.id), payment_type: 'balance' }
+        );
+        amountCharged = balanceAmount;
+        db.updateJobPayment(job.id, {
+          balance_paid_at: new Date().toISOString(),
+          status: 'paid',
+        });
+      } catch (chargeErr) {
+        console.error('Auto-charge failed, falling back to payment link:', chargeErr.message);
+        // Fall through to send a payment link instead
+        await sendBalanceLink(job, balanceAmount, customerEmail);
+      }
+    } else {
+      // No saved card — send a payment link
+      await sendBalanceLink(job, balanceAmount, customerEmail);
+    }
+  } else {
+    db.updateJobPayment(job.id, { status: 'paid' });
+  }
+
+  // Email receipt to customer
+  if (customerEmail) {
     try {
-      const { createPaymentLink } = require('../services/stripe');
-      const balanceLink = await createPaymentLink(
-        job.balance_amount,
-        `Gone by Monday — Balance Payment`,
-        { job_id: String(job.id), payment_type: 'balance' }
-      );
-      const venmo = process.env.VENMO_HANDLE ? `\n\nOr Venmo: @${process.env.VENMO_HANDLE}` : '';
-      const payMsg = balanceLink
-        ? `Job complete! Balance due: $${job.balance_amount.toFixed(2)}\n\nPay here: ${balanceLink}${venmo}\n\nThanks for choosing Gone by Monday!`
-        : `Job complete! Balance due: $${job.balance_amount.toFixed(2)}${venmo}\n\nThanks for choosing Gone by Monday!`;
-      await sendSms(job.phone, payMsg).catch(e => console.error(e.message));
+      await emailCustomerReceipt({
+        customerEmail,
+        customerName,
+        job,
+        amountCharged,
+      });
     } catch (err) {
-      console.error('Balance payment error:', err.message);
+      console.error('Receipt email error:', err.message);
     }
   }
 
-  res.json({ success: true });
+  res.json({ success: true, amount_charged: amountCharged });
 });
 
 // POST /api/jobs/:id/payment — manually record payment
 router.post('/:id/payment', (req, res) => {
-  const { payment_type, method, amount } = req.body;
+  const { payment_type, method } = req.body;
   const now = new Date().toISOString();
   const fields = {};
   if (payment_type === 'deposit') {
@@ -129,18 +159,45 @@ router.post('/:id/payment', (req, res) => {
   res.json({ success: true });
 });
 
-// POST /api/jobs/:id/remind — send 30-min heads-up SMS
-router.post('/:id/remind', async (req, res) => {
-  const job = db.getJob(req.params.id);
-  if (!job) return res.status(404).json({ error: 'Not found' });
-
-  const msg = `Heads up! The Gone by Monday crew is about 30 minutes away for your pickup at ${job.address}. See you soon! 🚛`;
-  try {
-    await sendSms(job.phone, msg);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+// POST /api/jobs/:id/remind — placeholder (owner texts manually per spec)
+router.post('/:id/remind', (req, res) => {
+  res.json({ success: true, message: 'Reminder logged — owner sends text manually' });
 });
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function sendBalanceLink(job, amount, customerEmail) {
+  if (!customerEmail) return;
+  try {
+    const link = await createPaymentLink(
+      amount,
+      'Gone by Monday — Balance Payment',
+      { job_id: String(job.id), payment_type: 'balance' }
+    );
+    if (link) {
+      const { sendMail } = require('../services/email');
+      const venmo = process.env.VENMO_HANDLE ? `<p>Or pay via Venmo: <strong>@${process.env.VENMO_HANDLE}</strong></p>` : '';
+      await sendMail(
+        customerEmail,
+        `Gone by Monday — Balance payment of $${amount.toFixed(2)} due`,
+        `<div style="font-family:system-ui,sans-serif;max-width:560px">
+          <h2 style="color:#2d6a4f">Job Complete!</h2>
+          <p>Balance due: <strong>$${amount.toFixed(2)}</strong></p>
+          <p><a href="${link}" style="background:#e76f00;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:700;display:inline-block">Pay Now →</a></p>
+          ${venmo}
+          <p style="color:#616161">Thanks for choosing Gone by Monday!</p>
+        </div>`
+      );
+    }
+  } catch (err) {
+    console.error('Balance link email error:', err.message);
+  }
+}
+
+function getCustomerEmailFromJob(job) {
+  if (!job.customer_id) return null;
+  const c = db.db.prepare('SELECT email FROM customers WHERE id = ?').get(job.customer_id);
+  return c?.email || null;
+}
 
 module.exports = router;
