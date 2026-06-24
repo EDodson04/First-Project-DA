@@ -1,62 +1,54 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-const GMAIL_USER = () => (process.env.GMAIL_USER || '').trim();
-const GMAIL_PASS = () => (process.env.GMAIL_APP_PASSWORD || '').trim();
+let _resend;
+function getResend() {
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return _resend;
+}
 
-// Log email config status once on first use
+// Log config once on first send
 let _logged = false;
 function logConfigOnce() {
   if (_logged) return;
   _logged = true;
-  const user = GMAIL_USER();
-  const pass = GMAIL_PASS();
-  console.log('[email] GMAIL_USER:', user ? `"${user}"` : '(not set)');
-  console.log('[email] GMAIL_APP_PASSWORD:', pass ? `"${pass.slice(0, 4)}…" (${pass.length} chars)` : '(not set)');
-  console.log('[email] OWNER_EMAIL:', (process.env.OWNER_EMAIL || '').trim() || `(falls back to GMAIL_USER: "${user}")`);
+  const key = (process.env.RESEND_API_KEY || '').trim();
+  console.log('[email] RESEND_API_KEY:', key ? `"${key.slice(0, 8)}…" (${key.length} chars)` : '(not set)');
+  console.log('[email] RESEND_FROM:', FROM());
+  console.log('[email] OWNER_EMAIL:', OWNER_EMAIL());
 }
 
-let _transporter;
-function getTransporter() {
-  if (!_transporter) {
-    _transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: GMAIL_USER(),
-        pass: GMAIL_PASS(),
-      },
-    });
-  }
-  return _transporter;
-}
-
-const OWNER_EMAIL = () => (process.env.OWNER_EMAIL || '').trim() || GMAIL_USER();
-const FROM = () => `Gone by Monday <${GMAIL_USER()}>`;
-const BASE = () => process.env.BASE_URL || 'https://gone-by-monday.onrender.com';
+const FROM       = () => (process.env.RESEND_FROM || '').trim() || 'Gone by Monday <onboarding@resend.dev>';
+const OWNER_EMAIL = () => (process.env.OWNER_EMAIL || '').trim() || (process.env.GMAIL_USER || '').trim();
+const BASE       = () => process.env.BASE_URL || 'https://gone-by-monday.onrender.com';
 
 async function sendMail(to, subject, html, attachments = []) {
   logConfigOnce();
   console.log(`[email] sendMail called — to: ${to}, subject: ${subject}`);
 
-  if (!GMAIL_USER() || !GMAIL_PASS()) {
-    console.warn('[email] Skipping — GMAIL_USER or GMAIL_APP_PASSWORD not set. Subject:', subject);
+  const key = (process.env.RESEND_API_KEY || '').trim();
+  if (!key) {
+    console.warn('[email] Skipping — RESEND_API_KEY not set. Subject:', subject);
     return null;
   }
 
   try {
-    const msg = await getTransporter().sendMail({
-      from: FROM(),
-      to,
-      subject,
-      html,
-      attachments,
-    });
-    console.log(`[email] SUCCESS — sent to ${to}: ${subject} (messageId: ${msg.messageId})`);
-    return msg;
+    const payload = { from: FROM(), to, subject, html };
+    if (attachments && attachments.length) payload.attachments = attachments;
+
+    const { data, error } = await getResend().emails.send(payload);
+
+    if (error) {
+      console.error(`[email] FAILED — to: ${to}, subject: ${subject}`);
+      console.error(`[email] Resend error:`, error);
+      throw new Error(error.message || JSON.stringify(error));
+    }
+
+    console.log(`[email] SUCCESS — sent to ${to}: ${subject} (id: ${data?.id})`);
+    return data;
   } catch (err) {
     console.error(`[email] FAILED — to: ${to}, subject: ${subject}`);
-    console.error(`[email] Error code: ${err.code || '(none)'}`);
     console.error(`[email] Error message: ${err.message}`);
     console.error(`[email] Full error:`, err);
     throw err;
@@ -70,7 +62,7 @@ async function emailOwnerNewRequest({ inquiry, quote, analysis, customer }) {
     : '';
 
   const materialsRow = analysis?.materials?.length
-    ? `<tr><td style="padding:8px 0;color:#616161">Materials</td><td>${analysis.materials.join(', ')}</td></tr>`
+    ? `<tr><td style="padding:4px 0;color:#616161;width:140px">Materials</td><td>${analysis.materials.join(', ')}</td></tr>`
     : '';
 
   const html = `
@@ -118,13 +110,13 @@ async function emailCustomerQuote({ customerEmail, customerName, quote, approveU
   const businessName = process.env.BUSINESS_NAME || 'Gone by Monday';
 
   const lines = [];
-  if (quote.fuel_surcharge > 0)     lines.push(`Fuel: $${quote.fuel_surcharge.toFixed(2)}`);
-  if (quote.tire_surcharge > 0)     lines.push(`Tire disposal: $${quote.tire_surcharge.toFixed(2)}`);
-  if (quote.appliance_surcharge > 0) lines.push(`Appliances: $${quote.appliance_surcharge.toFixed(2)}`);
-  if (quote.mattress_surcharge > 0)  lines.push(`Mattresses: $${quote.mattress_surcharge.toFixed(2)}`);
+  if (quote.fuel_surcharge > 0)       lines.push(`Fuel: $${quote.fuel_surcharge.toFixed(2)}`);
+  if (quote.tire_surcharge > 0)       lines.push(`Tire disposal: $${quote.tire_surcharge.toFixed(2)}`);
+  if (quote.appliance_surcharge > 0)  lines.push(`Appliances: $${quote.appliance_surcharge.toFixed(2)}`);
+  if (quote.mattress_surcharge > 0)   lines.push(`Mattresses: $${quote.mattress_surcharge.toFixed(2)}`);
   if (quote.electronics_surcharge > 0) lines.push(`Electronics: $${quote.electronics_surcharge.toFixed(2)}`);
-  if (quote.hazmat_surcharge > 0)   lines.push(`Hazmat/paint: $${quote.hazmat_surcharge.toFixed(2)}`);
-  if (quote.other_surcharge > 0)    lines.push(`Additional fees: $${quote.other_surcharge.toFixed(2)}`);
+  if (quote.hazmat_surcharge > 0)     lines.push(`Hazmat/paint: $${quote.hazmat_surcharge.toFixed(2)}`);
+  if (quote.other_surcharge > 0)      lines.push(`Additional fees: $${quote.other_surcharge.toFixed(2)}`);
 
   const html = `
 <div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;background:#fff">
