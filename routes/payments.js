@@ -82,25 +82,41 @@ async function onCheckoutComplete(session) {
     scheduledDate = await findBestZoneDay(zone);
   }
 
-  // Create job record
-  const jobId = db.createJob(customer?.id || 0, parseInt(quote_id), {
-    scheduled_date: scheduledDate,
-    estimated_duration_minutes: 60,
-    zone,
-    service_type: 'curb_pickup',
-    time_window: 'morning',
-    deposit_amount: depositAmount,
-    balance_amount: balanceAmount,
-  });
-
-  // Store Stripe customer ID and customer email on job
-  db.updateJobPayment(jobId, {
-    deposit_paid_at: now,
-    deposit_stripe_id: session.id,
-    status: 'confirmed',
-    stripe_customer_id: stripeCustomerId,
-    customer_email: customer_email || customer?.email || null,
-  });
+  // If a job was pre-created at quote approval time, upgrade it; otherwise create fresh
+  let jobId = findJobByQuote(quote_id);
+  if (jobId) {
+    // Upgrade the pending_deposit job to confirmed and fill in schedule details
+    db.updateJobDate(jobId, scheduledDate);
+    db.db.prepare('UPDATE jobs SET zone=?, service_type=?, time_window=? WHERE id=?')
+      .run(zone, 'curb_pickup', 'morning', jobId);
+    db.updateJobPayment(jobId, {
+      deposit_paid_at: now,
+      deposit_stripe_id: session.id,
+      deposit_amount: depositAmount,
+      balance_amount: balanceAmount,
+      status: 'confirmed',
+      stripe_customer_id: stripeCustomerId,
+      customer_email: customer_email || customer?.email || null,
+    });
+  } else {
+    // No pre-existing job — create one now
+    jobId = db.createJob(customer?.id || 0, parseInt(quote_id), {
+      scheduled_date: scheduledDate,
+      estimated_duration_minutes: 60,
+      zone,
+      service_type: 'curb_pickup',
+      time_window: 'morning',
+      deposit_amount: depositAmount,
+      balance_amount: balanceAmount,
+    });
+    db.updateJobPayment(jobId, {
+      deposit_paid_at: now,
+      deposit_stripe_id: session.id,
+      status: 'confirmed',
+      stripe_customer_id: stripeCustomerId,
+      customer_email: customer_email || customer?.email || null,
+    });
+  }
 
   // Try to extract payment method from PaymentIntent for later balance charge
   if (session.payment_intent) {

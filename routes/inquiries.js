@@ -33,10 +33,13 @@ router.post('/', upload.single('photo'), async (req, res) => {
   // If a photo was uploaded, analyze it with Claude AI
   if (req.file) {
     try {
-      // Read file as base64 for Claude
+      // Read file as base64 for Claude and for dashboard display
       const buf = fs.readFileSync(req.file.path);
       const base64 = buf.toString('base64');
       const mimeType = req.file.mimetype || 'image/jpeg';
+
+      // Store as data URL so the dashboard can display it (Render /tmp is ephemeral)
+      photoUrl = `data:${mimeType};base64,${base64}`;
 
       analysis = await analyzePhoto(null, { base64, mimeType });
       analysisStr = JSON.stringify(analysis);

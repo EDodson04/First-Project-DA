@@ -66,8 +66,13 @@ function fmtDate(str) {
 
 function fmtDateTime(str) {
   if (!str) return '—';
-  const d = new Date(str);
-  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  // SQLite datetime('now') returns "YYYY-MM-DD HH:MM:SS" with no Z — treat as UTC
+  const utcStr = (str.includes('Z') || str.includes('+')) ? str : str.replace(' ', 'T') + 'Z';
+  return new Date(utcStr).toLocaleString('en-US', {
+    timeZone: 'America/Denver',
+    month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
 }
 
 function fmtPhone(p) {

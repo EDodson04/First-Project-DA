@@ -76,6 +76,26 @@ router.post('/:id/approve', async (req, res) => {
   const customerEmail = req.body.customer_email || getCustomerEmail(quote);
   const customerName  = req.body.customer_name  || getCustomerName(quote);
 
+  // Create a pending_deposit job immediately so it appears in the jobs dashboard
+  // and schedule view right away — without waiting for the Stripe webhook
+  const depositAmount = Math.ceil((quote.total_price || 0) / 2 / 5) * 5;
+  const balanceAmount = Math.max(0, (quote.total_price || 0) - depositAmount);
+  const customer = getCustomerRecord(quote);
+  if (customer?.id) {
+    const existingJob = db.db.prepare('SELECT id FROM jobs WHERE quote_id = ?').get(req.params.id);
+    if (!existingJob) {
+      const jobId = db.createJob(customer.id, parseInt(req.params.id), {
+        estimated_duration_minutes: 60,
+        deposit_amount: depositAmount,
+        balance_amount: balanceAmount,
+      });
+      db.updateJobPayment(jobId, {
+        customer_email: customerEmail || null,
+        status: 'pending_deposit',
+      });
+    }
+  }
+
   if (!customerEmail) {
     db.markQuoteSent(req.params.id);
     return res.json({ success: true, message: 'Quote approved — no customer email on file, send manually.' });
@@ -83,7 +103,6 @@ router.post('/:id/approve', async (req, res) => {
 
   try {
     // Create Stripe Checkout Session (saves card for later balance charge)
-    const depositAmount = Math.ceil(quote.total_price / 2 / 5) * 5;
     let checkoutUrl = null;
     let stripeCustomerId = null;
 
@@ -152,8 +171,14 @@ router.post('/:id/resend', async (req, res) => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function getCustomerRecord(quote) {
+  if (!quote.inquiry_id) return null;
+  return db.db.prepare(
+    'SELECT * FROM customers WHERE inquiry_id = ? ORDER BY id DESC LIMIT 1'
+  ).get(quote.inquiry_id) || null;
+}
+
 function getCustomerEmail(quote) {
-  // Try to find from the customer record linked to this inquiry
   if (!quote.inquiry_id) return null;
   const customer = db.db.prepare(
     'SELECT email FROM customers WHERE inquiry_id = ? ORDER BY id DESC LIMIT 1'
