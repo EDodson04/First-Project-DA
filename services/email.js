@@ -1,26 +1,42 @@
 const nodemailer = require('nodemailer');
 
+const GMAIL_USER = () => (process.env.GMAIL_USER || '').trim();
+const GMAIL_PASS = () => (process.env.GMAIL_APP_PASSWORD || '').trim();
+
+// Log email config status once on first use
+let _logged = false;
+function logConfigOnce() {
+  if (_logged) return;
+  _logged = true;
+  const user = GMAIL_USER();
+  const pass = GMAIL_PASS();
+  console.log('[email] GMAIL_USER:', user ? `"${user}"` : '(not set)');
+  console.log('[email] GMAIL_APP_PASSWORD:', pass ? `"${pass.slice(0, 4)}…" (${pass.length} chars)` : '(not set)');
+  console.log('[email] OWNER_EMAIL:', (process.env.OWNER_EMAIL || '').trim() || `(falls back to GMAIL_USER: "${user}")`);
+}
+
 let _transporter;
 function getTransporter() {
   if (!_transporter) {
     _transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
+        user: GMAIL_USER(),
+        pass: GMAIL_PASS(),
       },
     });
   }
   return _transporter;
 }
 
-const OWNER_EMAIL = () => process.env.OWNER_EMAIL || process.env.GMAIL_USER;
-const FROM = () => `Gone by Monday <${process.env.GMAIL_USER}>`;
+const OWNER_EMAIL = () => (process.env.OWNER_EMAIL || '').trim() || GMAIL_USER();
+const FROM = () => `Gone by Monday <${GMAIL_USER()}>`;
 const BASE = () => process.env.BASE_URL || 'https://gone-by-monday.onrender.com';
 
 async function sendMail(to, subject, html, attachments = []) {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    console.warn('Email not configured — skipping:', subject);
+  logConfigOnce();
+  if (!GMAIL_USER() || !GMAIL_PASS()) {
+    console.warn('[email] Skipping — GMAIL_USER or GMAIL_APP_PASSWORD not set. Subject:', subject);
     return null;
   }
   const msg = await getTransporter().sendMail({
@@ -30,7 +46,7 @@ async function sendMail(to, subject, html, attachments = []) {
     html,
     attachments,
   });
-  console.log(`Email sent to ${to}: ${subject} (${msg.messageId})`);
+  console.log(`[email] Sent to ${to}: ${subject} (${msg.messageId})`);
   return msg;
 }
 
