@@ -19,7 +19,9 @@ let _transporter;
 function getTransporter() {
   if (!_transporter) {
     _transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
       auth: {
         user: GMAIL_USER(),
         pass: GMAIL_PASS(),
@@ -35,19 +37,30 @@ const BASE = () => process.env.BASE_URL || 'https://gone-by-monday.onrender.com'
 
 async function sendMail(to, subject, html, attachments = []) {
   logConfigOnce();
+  console.log(`[email] sendMail called — to: ${to}, subject: ${subject}`);
+
   if (!GMAIL_USER() || !GMAIL_PASS()) {
     console.warn('[email] Skipping — GMAIL_USER or GMAIL_APP_PASSWORD not set. Subject:', subject);
     return null;
   }
-  const msg = await getTransporter().sendMail({
-    from: FROM(),
-    to,
-    subject,
-    html,
-    attachments,
-  });
-  console.log(`[email] Sent to ${to}: ${subject} (${msg.messageId})`);
-  return msg;
+
+  try {
+    const msg = await getTransporter().sendMail({
+      from: FROM(),
+      to,
+      subject,
+      html,
+      attachments,
+    });
+    console.log(`[email] SUCCESS — sent to ${to}: ${subject} (messageId: ${msg.messageId})`);
+    return msg;
+  } catch (err) {
+    console.error(`[email] FAILED — to: ${to}, subject: ${subject}`);
+    console.error(`[email] Error code: ${err.code || '(none)'}`);
+    console.error(`[email] Error message: ${err.message}`);
+    console.error(`[email] Full error:`, err);
+    throw err;
+  }
 }
 
 // ── Owner: new quote request notification ─────────────────────────────────────
