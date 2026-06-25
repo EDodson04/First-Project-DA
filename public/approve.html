@@ -90,13 +90,6 @@
       margin-bottom: 1rem;
     }
     .btn-pay:hover { background: #c85e00; }
-    .venmo-section {
-      text-align: center;
-      padding: 1rem;
-      color: #555;
-      font-size: 0.9rem;
-    }
-    .venmo-section strong { color: #1a1a1a; }
     .loading, .error { text-align: center; padding: 3rem 1rem; }
     .loading p { color: #777; }
     .error p { color: #c0392b; }
@@ -156,11 +149,6 @@
       </div>
 
       <a id="pay-btn" href="#" class="btn-pay">Accept Quote &amp; Pay Deposit →</a>
-
-      <div id="venmo-section" class="venmo-section" style="display:none">
-        <p>Prefer Venmo? Send your deposit to <strong id="venmo-handle"></strong></p>
-        <p style="font-size:0.8rem;color:#aaa;margin-top:0.3rem">Include your name + "GBM deposit" in the note</p>
-      </div>
     </div>
   </div>
 
@@ -213,7 +201,6 @@
         ['appliance_surcharge', 'Appliance disposal'],
         ['mattress_surcharge', 'Mattress disposal'],
         ['electronics_surcharge', 'Electronics disposal'],
-        ['hazmat_surcharge', 'Hazmat disposal'],
         ['other_surcharge', q.other_surcharge_note || 'Other'],
       ];
       let html = '';
@@ -238,12 +225,6 @@
         btn.href = 'tel:' + (window.__BUSINESS_PHONE__ || '');
       }
 
-      // Venmo
-      const venmo = window.__VENMO_HANDLE__ || '';
-      if (venmo) {
-        document.getElementById('venmo-handle').textContent = '@' + venmo;
-        document.getElementById('venmo-section').style.display = '';
-      }
     }
 
     function showError(msg) {

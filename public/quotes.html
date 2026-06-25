@@ -44,6 +44,28 @@
   </div>
 </div>
 
+<!-- SMS Copy Modal -->
+<div id="sms-modal" class="modal-overlay hidden">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">📱 Copy SMS to Send Customer</span>
+      <button class="modal-close" onclick="closeModal('sms-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.875rem;color:var(--gray-700);margin-bottom:.75rem">
+        Copy this message and paste it into a text to the customer's phone number.
+        The email has already been sent — this is just a backup text if you want to reach out directly.
+      </p>
+      <textarea id="sms-text" rows="6" style="width:100%;padding:.75rem;border:1px solid var(--gray-200);border-radius:8px;font-size:.95rem;font-family:inherit;resize:vertical;line-height:1.5"></textarea>
+      <div style="display:flex;gap:.5rem;margin-top:.75rem">
+        <button class="btn btn-primary" style="flex:1" onclick="copySms()">📋 Copy to Clipboard</button>
+        <button class="btn btn-outline" onclick="closeModal('sms-modal')">Done</button>
+      </div>
+      <p id="sms-copy-confirm" style="font-size:.8rem;color:var(--green);margin-top:.5rem;text-align:center;display:none">✓ Copied!</p>
+    </div>
+  </div>
+</div>
+
 <!-- Photo / Detail Modal -->
 <div id="photo-modal" class="modal-overlay hidden">
   <div class="modal">
@@ -215,12 +237,40 @@ async function saveAndApprove(id) {
   }
   try {
     await API.put(`/api/quotes/${id}`, fields);
-    await API.post(`/api/quotes/${id}/approve`);
-    showToast('Quote approved and sent to customer!', 'success');
+    const result = await API.post(`/api/quotes/${id}/approve`);
+    showToast('Quote approved and emailed to customer!', 'success');
     loadQuotes();
+    showSmsModal(result);
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+function showSmsModal(result) {
+  if (!result) return;
+  const firstName = (result.customer_name || '').split(' ')[0] || 'there';
+  const total = result.total_price ? `$${Number(result.total_price).toFixed(0)}` : '';
+  const deposit = result.deposit_amount ? `$${Number(result.deposit_amount).toFixed(0)}` : '';
+  const link = result.approve_url || result.checkout_url || '';
+
+  const msg = `Hi ${firstName}! Gone by Monday here. We looked at your request and can haul that away for ${total}. A ${deposit} deposit holds your spot. Tap here to confirm and pay: ${link}`;
+
+  document.getElementById('sms-text').value = msg;
+  document.getElementById('sms-copy-confirm').style.display = 'none';
+  document.getElementById('sms-modal').classList.remove('hidden');
+}
+
+function copySms() {
+  const ta = document.getElementById('sms-text');
+  ta.select();
+  ta.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(ta.value).then(() => {
+    document.getElementById('sms-copy-confirm').style.display = '';
+    setTimeout(() => { document.getElementById('sms-copy-confirm').style.display = 'none'; }, 2500);
+  }).catch(() => {
+    document.execCommand('copy');
+    document.getElementById('sms-copy-confirm').style.display = '';
+  });
 }
 
 async function rejectQuote(id) {

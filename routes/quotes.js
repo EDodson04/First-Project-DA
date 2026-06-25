@@ -135,7 +135,15 @@ router.post('/:id/approve', async (req, res) => {
     await emailCustomerQuote({ customerEmail, customerName, quote, approveUrl });
     db.markQuoteSent(req.params.id);
 
-    res.json({ success: true, message: 'Quote approved and emailed to customer', checkout_url: checkoutUrl });
+    res.json({
+      success: true,
+      message: 'Quote approved and emailed to customer',
+      checkout_url: checkoutUrl,
+      approve_url: approveUrl,
+      customer_name: customerName || null,
+      total_price: quote.total_price,
+      deposit_amount: depositAmount,
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to send email: ' + err.message });
   }
