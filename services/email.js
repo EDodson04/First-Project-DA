@@ -90,6 +90,7 @@ async function emailOwnerNewRequest({ inquiry, quote, analysis, customer }) {
         <tr><td style="padding:4px 0;color:#616161">Confidence</td><td>${analysis.confidence || '—'}</td></tr>
         ${materialsRow}
         ${analysis.notes ? `<tr><td style="padding:4px 0;color:#616161">Notes</td><td>${analysis.notes}</td></tr>` : ''}
+        ${analysis.hazmat_count > 0 ? `<tr><td style="padding:4px 0;color:#c0392b;font-weight:700">⚠️ Hazmat flag</td><td style="color:#c0392b"><strong>${analysis.hazmat_count} item(s): ${analysis.hazmat_note || 'hazardous materials detected'}</strong><br><span style="font-size:.85rem">Customer will be asked to remove before pickup.</span></td></tr>` : ''}
       </table>
     </div>` : ''}
 
