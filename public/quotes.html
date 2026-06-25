@@ -111,6 +111,11 @@ function quoteCard(q) {
         ${statusBadge(q.status)}
       </div>
 
+      ${analysis.hazmat_count > 0 ? `
+        <div style="background:#fff3cd;border:2px solid #e6a817;border-radius:8px;padding:.75rem 1rem;margin-bottom:.75rem;font-size:.875rem">
+          <strong style="color:#7d4e00">⚠️ OWNER ALERT: Possible hazmat detected</strong><br>
+          <span style="color:#5c3a00">${analysis.hazmat_note || 'Hazardous materials may be visible in photo.'} — Confirm before approving.</span>
+        </div>` : ''}
       ${analysis.notes ? `<div style="font-size:.83rem;color:var(--gray-700);margin-bottom:.75rem;padding:.5rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--green-light)">🤖 ${analysis.notes}</div>` : ''}
 
       ${analysis.materials?.length ? `
