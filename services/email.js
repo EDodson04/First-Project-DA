@@ -211,7 +211,7 @@ async function emailCustomerReceipt({ customerEmail, customerName, job, amountCh
   </div>
 </div>`;
 
-  return sendMail(customerEmail, `Receipt from ${businessName} — $${total.toFixed(2)} total`, html);
+  return sendMail(customerEmail, `Your pickup is complete — thank you!`, html);
 }
 
 function formatLoad(size) {

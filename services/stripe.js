@@ -100,4 +100,4 @@ function constructWebhookEvent(rawBody, signature, secret) {
   return getStripe().webhooks.constructEvent(rawBody, signature, secret);
 }
 
-module.exports = { createDepositSession, chargeStoredCard, createPaymentLink, constructWebhookEvent };
+module.exports = { getStripe, createDepositSession, chargeStoredCard, createPaymentLink, constructWebhookEvent };

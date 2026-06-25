@@ -118,12 +118,21 @@ async function onCheckoutComplete(session) {
     });
   }
 
-  // Try to extract payment method from PaymentIntent for later balance charge
+  // Retrieve PaymentIntent to capture saved payment method for off-session balance charge
   if (session.payment_intent) {
     try {
       const { getStripe } = require('../services/stripe');
-      // Payment method is on the PaymentIntent — will be captured in payment_intent.succeeded
-    } catch {}
+      const stripe = getStripe();
+      const intent = await stripe.paymentIntents.retrieve(session.payment_intent);
+      if (intent.payment_method) {
+        db.updateJobPayment(jobId, { stripe_payment_method_id: intent.payment_method });
+        console.log('[webhook] Saved stripe_payment_method_id:', intent.payment_method, 'for job', jobId);
+      } else {
+        console.warn('[webhook] PaymentIntent has no payment_method yet for job', jobId);
+      }
+    } catch (pmErr) {
+      console.error('[webhook] Could not retrieve payment method:', pmErr.message);
+    }
   }
 
   const job = db.getJob(jobId);

@@ -96,6 +96,8 @@ router.post('/:id/complete', async (req, res) => {
   const customerName  = job.name || null;
   let amountCharged = 0;
 
+  console.log(`[complete] job ${job.id} — balance_amount=${balanceAmount}, stripe_customer_id=${job.stripe_customer_id || 'null'}, stripe_payment_method_id=${job.stripe_payment_method_id || 'null'}`);
+
   if (balanceAmount > 0) {
     // Try auto-charge via saved card
     if (job.stripe_customer_id && job.stripe_payment_method_id) {
