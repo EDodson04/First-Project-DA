@@ -106,6 +106,17 @@ function renderQuotes(quotes) {
   container.innerHTML = `<div class="quote-grid">${quotes.map(quoteCard).join('')}</div>`;
 }
 
+function destBadge(dest) {
+  const map = {
+    disposal:        ['DISPOSAL',  '#e8f5e9', '#1b5e20'],
+    donate_di:       ['DONATE-DI', '#fff3e0', '#bf360c'],
+    donate_goodwill: ['DONATE-GW', '#fce4ec', '#880e4f'],
+    mix:             ['MIX',       '#e3f2fd', '#0d47a1'],
+  };
+  const [label, bg, color] = map[dest] || map['disposal'];
+  return `<span style="display:inline-block;padding:.15rem .55rem;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.6px;background:${bg};color:${color}">${label}</span>`;
+}
+
 function quoteCard(q) {
   const analysis = q.analysis || {};
   const isPending = q.status === 'pending_review';
@@ -129,6 +140,7 @@ function quoteCard(q) {
         <div>
           <div class="quote-phone">${fmtPhone(q.phone)}</div>
           <div style="font-size:.8rem;color:var(--gray-500);margin-top:.1rem">${fmtDateTime(q.created_at)}</div>
+          <div style="margin-top:.3rem">${destBadge(q.destination || 'disposal')}</div>
         </div>
         ${statusBadge(q.status)}
       </div>

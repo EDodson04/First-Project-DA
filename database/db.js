@@ -154,6 +154,8 @@ const migrations = [
   'ALTER TABLE customers ADD COLUMN email TEXT',
   'ALTER TABLE quotes ADD COLUMN stripe_checkout_url TEXT',
   'ALTER TABLE quotes ADD COLUMN deposit_amount REAL DEFAULT 0',
+  "ALTER TABLE quotes ADD COLUMN destination TEXT DEFAULT 'disposal'",
+  'ALTER TABLE quotes ADD COLUMN storage_survey TEXT',
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch {} // column may already exist
@@ -208,8 +210,9 @@ function createQuote(inquiryId, fields) {
     INSERT INTO quotes (
       inquiry_id, load_size, base_price, fuel_surcharge, tire_surcharge,
       appliance_surcharge, mattress_surcharge, electronics_surcharge,
-      hazmat_surcharge, other_surcharge, other_surcharge_note, total_price, owner_notes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      hazmat_surcharge, other_surcharge, other_surcharge_note, total_price, owner_notes,
+      destination, storage_survey
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     inquiryId,
     fields.load_size || null,
@@ -223,7 +226,9 @@ function createQuote(inquiryId, fields) {
     fields.other_surcharge || 0,
     fields.other_surcharge_note || null,
     total,
-    fields.owner_notes || null
+    fields.owner_notes || null,
+    fields.destination || 'disposal',
+    fields.storage_survey || null
   );
   return r.lastInsertRowid;
 }

@@ -56,9 +56,21 @@ async function sendMail(to, subject, html, attachments = []) {
 }
 
 // ── Owner: new quote request notification ─────────────────────────────────────
+const DEST_LABELS = {
+  disposal: 'Junk removal (haul away)',
+  donate_di: '🎁 Donation pickup → Deseret Industries',
+  donate_goodwill: '🎁 Donation pickup → Goodwill',
+  mix: '⚡ Mixed — some donate, some haul',
+};
+
 async function emailOwnerNewRequest({ inquiry, quote, analysis, customer }) {
   const photoRow = inquiry.photo_url
     ? `<tr><td style="padding:8px 0;color:#616161;width:140px">Photo</td><td><a href="${inquiry.photo_url}" style="color:#2d6a4f">View photo →</a></td></tr>`
+    : '';
+  const destLabel = DEST_LABELS[quote?.destination] || quote?.destination || 'Junk removal';
+  const destRow = `<tr><td style="padding:8px 0;color:#616161;width:140px"><strong>Destination</strong></td><td><strong style="color:#1a5c38">${destLabel}</strong></td></tr>`;
+  const surveyRow = quote?.storage_survey
+    ? `<tr><td style="padding:4px 0;color:#616161">Storage unit interest</td><td>${quote.storage_survey === 'yes' ? '✅ Yes — interested in storage delivery' : quote.storage_survey}</td></tr>`
     : '';
 
   const materialsRow = analysis?.materials?.length
@@ -76,6 +88,8 @@ async function emailOwnerNewRequest({ inquiry, quote, analysis, customer }) {
       <tr><td style="padding:8px 0;color:#616161">Phone</td><td>${customer?.phone || inquiry.phone || '—'}</td></tr>
       <tr><td style="padding:8px 0;color:#616161">Email</td><td>${customer?.email || '—'}</td></tr>
       <tr><td style="padding:8px 0;color:#616161">Address</td><td>${customer?.address || '—'}</td></tr>
+      ${destRow}
+      ${surveyRow}
       ${photoRow}
       ${inquiry.message ? `<tr><td style="padding:8px 0;color:#616161">Description</td><td>${inquiry.message}</td></tr>` : ''}
     </table>

@@ -10,6 +10,8 @@
 <meta property="og:type" content="website">
 <meta property="og:image" content="/images/og-image.jpg">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
   :root {
     --green: #2d6a4f;
@@ -23,6 +25,9 @@
     --gray-900: #212121;
     --font: 'Inter', system-ui, -apple-system, sans-serif;
     --radius: 10px;
+    --car-bg: #1a1a18;
+    --car-cream: #f2efe8;
+    --car-amber: #e8b05a;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: var(--font); color: var(--gray-900); line-height: 1.6; }
@@ -116,6 +121,87 @@
   }
   .btn-hero-secondary:hover { background: rgba(255,255,255,.25); }
 
+  /* ── Carousel ── */
+  .carousel-wrap {
+    background: var(--car-bg);
+    position: relative;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .car-stripe {
+    height: 4px;
+    background: linear-gradient(90deg, transparent, var(--car-amber) 20%, #c8873a 50%, var(--car-amber) 80%, transparent);
+  }
+  .car-track {
+    display: flex;
+    will-change: transform;
+  }
+  .car-track-animate { transition: transform .5s cubic-bezier(.4,0,.2,1); }
+  .car-panel {
+    min-width: 100%;
+    padding: 3.5rem 1.5rem 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .car-content { max-width: 680px; text-align: center; }
+  .car-eyebrow {
+    display: inline-block;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--car-amber);
+    margin-bottom: .9rem;
+  }
+  .car-headline {
+    font-family: 'Bebas Neue', 'Impact', 'Arial Narrow', condensed, sans-serif;
+    font-size: clamp(2.2rem, 6vw, 3.8rem);
+    font-weight: 400;
+    line-height: 1.05;
+    color: var(--car-cream);
+    letter-spacing: 1.5px;
+    margin-bottom: 1.1rem;
+  }
+  .car-body {
+    font-size: 1rem;
+    color: rgba(242,239,232,.78);
+    line-height: 1.75;
+    max-width: 560px;
+    margin: 0 auto 1.75rem;
+  }
+  .car-btn {
+    display: inline-block;
+    background: var(--car-amber);
+    color: #1a1a18;
+    font-size: .92rem;
+    font-weight: 700;
+    padding: .7rem 1.6rem;
+    border-radius: 7px;
+    text-decoration: none;
+    transition: opacity .15s;
+    letter-spacing: .3px;
+  }
+  .car-btn:hover { opacity: .85; }
+  .car-dots {
+    display: flex;
+    justify-content: center;
+    gap: .5rem;
+    padding: .75rem 0 1.25rem;
+  }
+  .car-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(232,176,90,.28);
+    cursor: pointer;
+    transition: background .2s, transform .2s;
+    padding: 0;
+  }
+  .car-dot.active { background: var(--car-amber); transform: scale(1.35); }
+
   /* ── Section ── */
   section { padding: 4rem 1.5rem; }
   .section-inner { max-width: 1100px; margin: 0 auto; }
@@ -159,6 +245,58 @@
   .step h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: .4rem; }
   .step p { color: var(--gray-700); font-size: .9rem; }
 
+  /* ── Donation Pickup ── */
+  .donation-bg { background: #fff8ee; }
+  .donation-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    align-items: start;
+  }
+  @media (max-width: 720px) { .donation-layout { grid-template-columns: 1fr; } }
+  .donation-desc { font-size: 1rem; color: var(--gray-700); line-height: 1.7; margin-bottom: 1.25rem; }
+  .items-accepted {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .35rem .75rem;
+    margin: .5rem 0 1rem;
+  }
+  .items-accepted span { font-size: .875rem; color: var(--gray-700); }
+  .items-accepted span::before { content: '✓  '; color: var(--green); font-weight: 700; }
+  .donation-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    background: var(--green);
+    color: #fff;
+    font-weight: 700;
+    font-size: .95rem;
+    padding: .75rem 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: opacity .15s;
+  }
+  .donation-cta:hover { opacity: .88; }
+  .donation-card {
+    background: #fff;
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    border: 1px solid #f0e8d8;
+  }
+  .donation-card h4 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; }
+  .dest-item {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    padding: .75rem 0;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .dest-item:last-of-type { border-bottom: none; }
+  .dest-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: .1rem; }
+  .dest-name { font-weight: 700; font-size: .95rem; }
+  .dest-addr { font-size: .82rem; color: var(--gray-700); }
+
   /* ── Pricing ── */
   .pricing-bg { background: var(--gray-50); }
   .price-grid {
@@ -181,12 +319,7 @@
   .price-label { font-size: .85rem; font-weight: 600; color: var(--gray-700); text-transform: uppercase; letter-spacing: .5px; margin-bottom: .35rem; }
   .price-amount { font-size: 2.2rem; font-weight: 800; color: var(--green); line-height: 1; margin-bottom: .25rem; }
   .price-note { font-size: .8rem; color: var(--gray-700); }
-  .price-disclaimer {
-    text-align: center;
-    font-size: .83rem;
-    color: var(--gray-700);
-    margin-top: 1.5rem;
-  }
+  .price-disclaimer { text-align: center; font-size: .83rem; color: var(--gray-700); margin-top: 1.5rem; }
 
   /* ── Zone Map ── */
   .zone-grid {
@@ -195,11 +328,7 @@
     gap: 1rem;
     margin-top: 2rem;
   }
-  .zone-card {
-    border-radius: var(--radius);
-    padding: 1.5rem;
-    border-left: 5px solid;
-  }
+  .zone-card { border-radius: var(--radius); padding: 1.5rem; border-left: 5px solid; }
   .zone-card.zone-1 { background: #e3f2fd; border-color: #1565c0; }
   .zone-card.zone-2 { background: var(--green-pale); border-color: var(--green); }
   .zone-card.zone-3 { background: #fff3e0; border-color: var(--orange); }
@@ -208,12 +337,7 @@
   .zone-cities { font-size: .85rem; color: var(--gray-700); }
 
   /* ── CTA Banner ── */
-  .cta-banner {
-    background: var(--green);
-    color: #fff;
-    text-align: center;
-    padding: 4rem 1.5rem;
-  }
+  .cta-banner { background: var(--green); color: #fff; text-align: center; padding: 4rem 1.5rem; }
   .cta-banner h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; margin-bottom: .75rem; }
   .cta-banner p { font-size: 1rem; color: rgba(255,255,255,.85); margin-bottom: 2rem; }
   .cta-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
@@ -275,7 +399,6 @@
     font-weight: 500;
     display: none;
   }
-  /* Photo upload area */
   .photo-drop {
     border: 2px dashed var(--gray-200);
     border-radius: 10px;
@@ -301,6 +424,20 @@
   }
   .quote-form-section { background: #f0faf4; }
 
+  /* ── FAQ ── */
+  .faq-section { background: var(--gray-50); border-top: 1px solid var(--gray-200); padding: 2.5rem 1.5rem; }
+  .faq-list { display: flex; flex-direction: column; gap: .6rem; max-width: 720px; }
+  .faq-item {
+    background: #fff;
+    border-radius: 8px;
+    padding: .9rem 1.1rem;
+    border: 1px solid var(--gray-200);
+    font-size: .88rem;
+    color: var(--gray-700);
+    line-height: 1.6;
+  }
+  .faq-item strong { color: var(--gray-900); display: block; margin-bottom: .15rem; font-size: .9rem; }
+
   /* ── Footer ── */
   footer {
     background: var(--gray-900);
@@ -321,6 +458,7 @@
     .btn-hero-primary, .btn-hero-secondary { width: 100%; justify-content: center; }
     .cta-buttons { flex-direction: column; align-items: center; }
     section { padding: 3rem 1.25rem; }
+    .car-panel { padding: 2.5rem 1.25rem 2.5rem; }
   }
 </style>
 </head>
@@ -342,6 +480,71 @@
     <a href="#cleanout-form" class="btn-hero-secondary">🏠 Schedule a Cleanout</a>
   </div>
 </section>
+
+<!-- Carousel -->
+<div class="carousel-wrap" id="carousel">
+  <div class="car-stripe"></div>
+  <div class="car-track" id="car-track">
+
+    <!-- Panel 1: Life Transitions -->
+    <div class="car-panel">
+      <div class="car-content">
+        <div class="car-eyebrow">Life Transitions</div>
+        <h2 class="car-headline">WHEN A FAMILY HOME NEEDS A NEW CHAPTER</h2>
+        <p class="car-body">A move to assisted living. A downsize. A loss. Emptying a home is heavy in every sense — and you shouldn't have to carry it alone. Our crew handles the cleanout with care. You keep what matters; we haul the rest, and anything you choose to give goes to Deseret Industries or Goodwill.</p>
+        <a href="#cleanout-form" class="car-btn">Schedule a Cleanout →</a>
+      </div>
+    </div>
+
+    <!-- Panel 2: Declutter -->
+    <div class="car-panel">
+      <div class="car-content">
+        <div class="car-eyebrow">Declutter</div>
+        <h2 class="car-headline">LIGHTER HOUSE. LIGHTER MIND.</h2>
+        <p class="car-body">Clutter takes up more than space — it sits in the back of your mind every time you walk past it. Reclaim the garage. Take back the basement. Be king of your castle again. Snap a photo, get a quote, set it out. Gone.</p>
+        <a href="#quote-form" class="car-btn">Get a Quote →</a>
+      </div>
+    </div>
+
+    <!-- Panel 3: Donation Pickup -->
+    <div class="car-panel">
+      <div class="car-content">
+        <div class="car-eyebrow">Donation Pickup</div>
+        <h2 class="car-headline">SORTED, BOXED &amp; READY TO GIVE?</h2>
+        <p class="car-body">You've done the hard part — decided what deserves a second life. Don't spend your Saturday loading a truck and waiting in a drop-off line. We pick up your donation load and deliver it to Deseret Industries or Goodwill for you. Good stuff, gone to a good place.</p>
+        <a href="#quote-form" class="car-btn car-btn-donate">Book a Donation Pickup →</a>
+      </div>
+    </div>
+
+    <!-- Panel 4: Weekend Mess -->
+    <div class="car-panel">
+      <div class="car-content">
+        <div class="car-eyebrow">Weekend Mess</div>
+        <h2 class="car-headline">WEEKEND MESS? GONE BY MONDAY.</h2>
+        <p class="car-body">The yard project debris. The garage purge pile. The old couch that's been in the driveway since Saturday. Snap a photo, get an instant quote, set it out — we pick it up on your neighborhood's route day.</p>
+        <a href="#quote-form" class="car-btn">Get an Instant Quote →</a>
+      </div>
+    </div>
+
+    <!-- Panel 5: Humor -->
+    <div class="car-panel">
+      <div class="car-content">
+        <div class="car-eyebrow">Full-Service Cleanout</div>
+        <h2 class="car-headline">JOIN THE EX-HOARDERS CLUB.</h2>
+        <p class="car-body">You know the pile. It's been "going to the dump next weekend" since 2021. The treadmill that's now a coat rack. The boxes labeled "misc." We'll clean out the garage, the barn, the shed — and you never have to explain how it got that way. Membership is free. The garage space is priceless.</p>
+        <a href="#cleanout-form" class="car-btn">Schedule a Cleanout →</a>
+      </div>
+    </div>
+
+  </div>
+  <div class="car-dots" id="car-dots">
+    <button class="car-dot active" data-i="0" aria-label="Panel 1"></button>
+    <button class="car-dot" data-i="1" aria-label="Panel 2"></button>
+    <button class="car-dot" data-i="2" aria-label="Panel 3"></button>
+    <button class="car-dot" data-i="3" aria-label="Panel 4"></button>
+    <button class="car-dot" data-i="4" aria-label="Panel 5"></button>
+  </div>
+</div>
 
 <!-- How It Works -->
 <section>
@@ -368,12 +571,64 @@
   </div>
 </section>
 
+<!-- Donation Pickup Service -->
+<section class="donation-bg" id="donation-section">
+  <div class="section-inner">
+    <div class="section-label">Donation Pickup</div>
+    <h2 class="section-title">Sorted and ready to give? We'll deliver it for you.</h2>
+    <div class="donation-layout">
+      <div>
+        <p class="donation-desc">Decluttering or downsizing? You've already sorted what's worth giving — we'll pick up your donation load and deliver it to Deseret Industries or Goodwill for you. No truck loading, no trip across town. Same simple volume pricing.</p>
+        <p class="donation-desc" style="font-size:.875rem;background:#fff;border-radius:8px;padding:.9rem 1rem;border:1px solid #f0e8d8">
+          This service is for customers who've already decided what to donate. You do the sorting — we do the hauling. We pick up your load and deliver it as-is.
+        </p>
+        <div class="section-label" style="margin-top:1.5rem;margin-bottom:.4rem">We Accept</div>
+        <div class="items-accepted">
+          <span>Furniture</span>
+          <span>Clothing &amp; linens</span>
+          <span>Kitchen items</span>
+          <span>Books &amp; media</span>
+          <span>Toys &amp; games</span>
+          <span>Small appliances</span>
+          <span>Electronics &amp; TVs</span>
+          <span>Décor &amp; art</span>
+          <span>Tools &amp; equipment</span>
+          <span>Sporting goods</span>
+        </div>
+        <p style="font-size:.77rem;color:var(--gray-700);margin:-.25rem 0 1.5rem">*Subject to donation center acceptance. Items declined by the center will be hauled at our standard rate.</p>
+        <a href="#quote-form" class="donation-cta" id="book-donation-btn">🎁 Book a Donation Pickup →</a>
+      </div>
+      <div class="donation-card">
+        <h4>Where we deliver</h4>
+        <div class="dest-item">
+          <div class="dest-icon">🏪</div>
+          <div>
+            <div class="dest-name">Deseret Industries</div>
+            <div class="dest-addr">175 W 1400 N, Logan, UT 84341</div>
+          </div>
+        </div>
+        <div class="dest-item">
+          <div class="dest-icon">🛍️</div>
+          <div>
+            <div class="dest-name">Goodwill</div>
+            <div class="dest-addr">1617 N Main St, Logan, UT 84341</div>
+          </div>
+        </div>
+        <div style="margin-top:1.25rem;padding:.9rem 1rem;background:var(--gray-50);border-radius:8px;font-size:.875rem;color:var(--gray-700);line-height:1.65">
+          <strong style="color:var(--gray-900);display:block;margin-bottom:.2rem">Same pricing as junk removal</strong>
+          Volume-based — $100 quarter load through $400 full load. Set it out, we pick it up and deliver it. Simple.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Quote Request Form -->
 <section class="quote-form-section" id="quote-form">
   <div class="section-inner">
     <div class="section-label">Get a Free Quote</div>
     <h2 class="section-title">Upload a photo — get a quote in minutes.</h2>
-    <p class="section-sub" style="margin-bottom:1.5rem">No phone call needed. Snap a pic of your junk, fill out the form, and we'll email you a quote and Stripe payment link to lock in your spot.</p>
+    <p class="section-sub" style="margin-bottom:1.5rem">No phone call needed. Snap a pic of your items, fill out the form, and we'll email you a quote and Stripe payment link to lock in your spot.</p>
     <div class="quote-form-wrap">
       <div id="quote-success" class="form-success">
         ✅ Request received! We'll review your photo and email you a quote within a few hours.
@@ -396,6 +651,18 @@
           <input type="text" class="form-control" name="address" placeholder="123 Main St, Logan, UT" required>
         </div>
         <div class="form-group">
+          <label class="form-label">What kind of pickup is this? *</label>
+          <select class="form-control" name="destination" id="destination-select" required>
+            <option value="disposal">Junk removal (haul away)</option>
+            <option value="donate_di">Donation pickup — Deseret Industries</option>
+            <option value="donate_goodwill">Donation pickup — Goodwill</option>
+            <option value="mix">Both — some to donate, some to haul (explain in notes)</option>
+          </select>
+          <p id="both-helper" style="font-size:.8rem;color:var(--gray-700);margin-top:.35rem;display:none">
+            Please keep donation items separate from haul-away items.
+          </p>
+        </div>
+        <div class="form-group">
           <label class="form-label">Photo of Items *</label>
           <div class="photo-drop" id="photo-drop">
             <input type="file" name="photo" id="photo-input" accept="image/*" required>
@@ -408,6 +675,12 @@
         <div class="form-group">
           <label class="form-label">Describe the Items (optional)</label>
           <textarea class="form-control" name="message" placeholder="Furniture, yard waste, appliances, tires…"></textarea>
+        </div>
+        <div class="form-group" style="margin-top:.15rem">
+          <label style="display:flex;gap:.6rem;align-items:flex-start;cursor:pointer">
+            <input type="checkbox" name="storage_survey" value="yes" style="margin-top:.25rem;flex-shrink:0">
+            <span style="font-size:.82rem;color:var(--gray-700);line-height:1.5">In the future, would delivery to your own storage unit be useful? <em style="font-style:italic">(Market research — not a current service)</em></span>
+          </label>
         </div>
         <button type="submit" class="btn-submit-orange">📸 Send My Photo for a Quote →</button>
       </form>
@@ -539,8 +812,30 @@
   <div class="cta-buttons">
     <a href="#quote-form" class="btn-hero-primary" id="cta-quote-btn">📸 Get a Free Quote</a>
     <a href="#cleanout-form" class="btn-hero-secondary">🏠 Schedule a Cleanout</a>
+    <a href="#quote-form" class="btn-hero-secondary" id="cta-donate-btn" style="border-color:rgba(232,176,90,.7)">🎁 Book Donation Pickup</a>
   </div>
 </div>
+
+<!-- FAQ / Policies -->
+<section class="faq-section">
+  <div class="section-inner">
+    <div class="section-label">FAQ &amp; Policies</div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <strong>Donation pickups</strong>
+        You choose what to donate and where — we deliver your load to Deseret Industries or Goodwill as-is. If the donation center declines an item, we'll dispose of it for you at our standard rate.
+      </div>
+      <div class="faq-item">
+        <strong>What happens after I submit?</strong>
+        We review your photo and email you a flat-rate price, usually within a few hours. You'll get a Stripe payment link to pay a 50% deposit and lock in your spot. No commitment until you pay.
+      </div>
+      <div class="faq-item">
+        <strong>Do you haul hazardous materials?</strong>
+        We can't haul paint, chemicals, or other hazardous waste. Logan City Landfill offers a free Household Hazardous Waste drop-off — please remove those items before pickup and we'll haul everything else.
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- Footer -->
 <footer>
@@ -554,16 +849,90 @@
 </footer>
 
 <script>
-// Photo upload form — posts multipart to /api/inquiries
-const photoInput = document.getElementById('photo-input');
-const photoDrop  = document.getElementById('photo-drop');
+// ── Carousel ────────────────────────────────────────────────────────────────
+(function() {
+  const track  = document.getElementById('car-track');
+  const dots   = document.querySelectorAll('.car-dot');
+  const total  = 5;
+  let cur = 0, timer, touchX = null;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function goTo(i) {
+    cur = ((i % total) + total) % total;
+    track.classList.add('car-track-animate');
+    track.style.transform = `translateX(-${cur * 100}%)`;
+    dots.forEach((d, idx) => d.classList.toggle('active', idx === cur));
+  }
+
+  function startTimer() {
+    if (reduced) return;
+    clearInterval(timer);
+    timer = setInterval(() => goTo(cur + 1), 6000);
+  }
+
+  dots.forEach(d => d.addEventListener('click', () => { goTo(+d.dataset.i); startTimer(); }));
+
+  const wrap = document.getElementById('carousel');
+  wrap.addEventListener('mouseenter', () => clearInterval(timer));
+  wrap.addEventListener('mouseleave', startTimer);
+  wrap.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+  wrap.addEventListener('touchend', e => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 40) { goTo(dx < 0 ? cur + 1 : cur - 1); startTimer(); }
+    touchX = null;
+  }, { passive: true });
+
+  // Panel 3 "Book a Donation Pickup" button preselects donation in the form
+  document.querySelector('.car-btn-donate')?.addEventListener('click', e => {
+    e.preventDefault();
+    preselectDest('donate_di');
+    document.getElementById('quote-form').scrollIntoView({ behavior: 'smooth' });
+  });
+
+  startTimer();
+})();
+
+// ── Donation preselect helpers ───────────────────────────────────────────────
+function preselectDest(val) {
+  const sel = document.getElementById('destination-select');
+  if (!sel) return;
+  sel.value = val;
+  sel.dispatchEvent(new Event('change'));
+}
+
+// "Book Donation Pickup" buttons in donation section and CTA
+document.getElementById('book-donation-btn')?.addEventListener('click', e => {
+  e.preventDefault();
+  preselectDest('donate_di');
+  document.getElementById('quote-form').scrollIntoView({ behavior: 'smooth' });
+});
+document.getElementById('cta-donate-btn')?.addEventListener('click', e => {
+  e.preventDefault();
+  preselectDest('donate_di');
+  document.getElementById('quote-form').scrollIntoView({ behavior: 'smooth' });
+});
+
+// URL param: ?dest=donate_di or donate_goodwill
+(function() {
+  const d = new URLSearchParams(location.search).get('dest');
+  if (d) preselectDest(d);
+})();
+
+// Show "keep items separate" note when "Both" is selected
+document.getElementById('destination-select')?.addEventListener('change', function() {
+  document.getElementById('both-helper').style.display = this.value === 'mix' ? '' : 'none';
+});
+
+// ── Photo upload form ────────────────────────────────────────────────────────
+const photoInput   = document.getElementById('photo-input');
+const photoDrop    = document.getElementById('photo-drop');
 const photoPreview = document.getElementById('photo-preview');
 
 photoInput.addEventListener('change', () => {
   const file = photoInput.files[0];
   if (!file) return;
-  const url = URL.createObjectURL(file);
-  photoPreview.innerHTML = `<img src="${url}" alt="Preview">`;
+  photoPreview.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Preview">`;
 });
 
 photoDrop.addEventListener('dragover', e => { e.preventDefault(); photoDrop.classList.add('dragover'); });
@@ -580,16 +949,14 @@ photoDrop.addEventListener('drop', e => {
   }
 });
 
-document.getElementById('quote-request-form').addEventListener('submit', async (e) => {
+document.getElementById('quote-request-form').addEventListener('submit', async e => {
   e.preventDefault();
   const form = e.target;
   const btn = form.querySelector('button[type=submit]');
   btn.disabled = true;
   btn.textContent = 'Sending…';
-
   try {
-    const fd = new FormData(form);
-    const res = await fetch('/api/inquiries', { method: 'POST', body: fd });
+    const res = await fetch('/api/inquiries', { method: 'POST', body: new FormData(form) });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Request failed');
@@ -603,21 +970,18 @@ document.getElementById('quote-request-form').addEventListener('submit', async (
   }
 });
 
-// Cleanout form submission
-document.getElementById('cleanout-request-form').addEventListener('submit', async (e) => {
+// ── Cleanout form ─────────────────────────────────────────────────────────────
+document.getElementById('cleanout-request-form').addEventListener('submit', async e => {
   e.preventDefault();
   const form = e.target;
   const btn = form.querySelector('button[type=submit]');
   btn.disabled = true;
   btn.textContent = 'Sending...';
-
-  const data = Object.fromEntries(new FormData(form));
-
   try {
     const res = await fetch('/api/cleanouts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(Object.fromEntries(new FormData(form))),
     });
     if (!res.ok) throw new Error('Request failed');
     form.style.display = 'none';

@@ -20,7 +20,7 @@ const upload = multer({
 
 // POST /api/inquiries — web form photo submission
 router.post('/', upload.single('photo'), async (req, res) => {
-  const { name, phone, email, address, description } = req.body;
+  const { name, phone, email, address, description, message, destination, storage_survey } = req.body;
 
   if (!phone && !email) {
     return res.status(400).json({ error: 'Phone or email required' });
@@ -65,7 +65,7 @@ router.post('/', upload.single('photo'), async (req, res) => {
   // Create inquiry record
   const inquiryId = db.createInquiry(
     phone || email,
-    description || null,
+    message || description || null,
     photoUrl,
     null,
     analysisStr
@@ -99,12 +99,16 @@ router.post('/', upload.single('photo'), async (req, res) => {
       base_price: analysis.base_price || 0,
       ...SURCHARGES,
       owner_notes: analysis.notes,
+      destination: destination || 'disposal',
+      storage_survey: storage_survey || null,
     });
   } else {
     quoteId = db.createQuote(inquiryId, {
       load_size: 'half',
       base_price: 0,
       owner_notes: 'Review photo and set price manually.',
+      destination: destination || 'disposal',
+      storage_survey: storage_survey || null,
     });
   }
 
