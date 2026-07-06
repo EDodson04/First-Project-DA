@@ -46,8 +46,11 @@ function showToast(message, type = 'default') {
 
 // ── Auth guard ────────────────────────────────────────────────────────────────
 
+// Paths that are public and must never trigger a login redirect
+const PUBLIC_PATHS = ['/', '/landing.html', '/login.html', '/approve.html', '/payment-success.html'];
+
 function requireAuth() {
-  if (!localStorage.getItem('gbm_token') && window.location.pathname !== '/login.html') {
+  if (!localStorage.getItem('gbm_token') && !PUBLIC_PATHS.includes(window.location.pathname)) {
     window.location.href = '/login.html';
   }
 }
