@@ -26,6 +26,13 @@ app.use('/api/payments', paymentsRoutes);
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(bodyParser.urlencoded({ extended: false })); // Twilio sends form-encoded
 app.use(bodyParser.json());
+
+// Serve customer landing page at root — must come before express.static so it
+// wins over static's default index.html behavior (index.html is the admin dashboard)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Public API — no auth required ────────────────────────────────────────────
